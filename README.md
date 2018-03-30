@@ -6,5 +6,6 @@ In the webpage, assignment 1, questions 1-3.
 ##### Divided Work
 Yotam:
 * ...
+
 Liron:
 * ...
