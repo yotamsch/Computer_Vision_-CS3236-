@@ -6,7 +6,8 @@
 In the webpage, assignment 1, questions 1-3.
 ### Divided Work
 Yotam:
-* Questions 2-3 (SVM, Softmax)
+- [X] Questions 2 (SVM)
+- [X] Question 3 (Softmax)
 
 Liron:
-* Question 1 (KNN)
+- [ ] Question 1 (KNN)
