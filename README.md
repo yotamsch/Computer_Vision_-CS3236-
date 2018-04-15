@@ -10,4 +10,12 @@ Yotam:
 - [X] Question 3 (Softmax)
 
 Liron:
-- [ ] Question 1 (KNN)
+- [X] Question 1 (KNN)
+
+## HW2 (`HW2/seam_carving.pdf`)
+### Divided Work
+Yotam:
+- [ ] ...?
+
+Liron:
+- [ ] ...?
