@@ -565,8 +565,8 @@ public class SeamCarving {
 			ImageWrapper imgWrap = new ImageWrapper(inputFileName, 1);
 
 			// TODO: Remove. To set the cropping dimensions.
-			outputWidth = imgWrap.getWidth();
-			outputHeight = imgWrap.getHeight() + 50;
+			outputWidth = imgWrap.getWidth() - 50;
+			outputHeight = imgWrap.getHeight() - 50;
 
 			System.out.printf("Old dimensions: (%d, %d)\nNew dimensions: (%d, %d)\n", imgWrap.getWidth(),
 					imgWrap.getHeight(), outputWidth, outputHeight);
@@ -574,6 +574,7 @@ public class SeamCarving {
 			alterCols = imgWrap.getWidth() - outputWidth;
 			alterRows = imgWrap.getHeight() - outputHeight;
 
+			
 			if (alterCols != 0) {
 				if (alterCols > 0) {
 					System.out.println("Removing vertical seams");
@@ -582,7 +583,7 @@ public class SeamCarving {
 				} else {
 					System.out.println("Adding vertical seams");
 					// Create an output BufferedImage with the new size
-					BufferedImage outputImg = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_INT_RGB);
+					BufferedImage outputImg = new BufferedImage(outputWidth, imgWrap.getHeight(), BufferedImage.TYPE_INT_RGB);
 					for (int x=0; x<imgWrap.getWidth(); x++) {
 						for (int y=0; y<imgWrap.getHeight(); y++) {
 							outputImg.setRGB(x, y, imgWrap.image.getRGB(x, y));
