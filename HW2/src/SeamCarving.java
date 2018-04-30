@@ -83,7 +83,7 @@ public class SeamCarving {
 		public BufferedImage getImage() {
 			return this.image;
 		}
-		
+
 		public void setImage(BufferedImage img) {
 			this.image = img;
 		}
@@ -92,8 +92,8 @@ public class SeamCarving {
 			// load the color map if image loaded correct
 			initializeColorMap();
 			// basically want to calculate the gradient/energy and entropy
-//			calculatePmnMap();
-//			calculateEntropyMap();
+			//			calculatePmnMap();
+			//			calculateEntropyMap();
 			calculatePmnMapNAIVE();
 			calculateEntropyMapNAIVE();
 			calculateGradientMap();
@@ -119,7 +119,7 @@ public class SeamCarving {
 				resizeImage(0, 0, getWidth() - 1, getHeight());
 			}
 		}
-		
+
 		/**
 		 * Adds K vertical seams, see removeKVerticalSeams
 		 * @param outputImg: new image object with the required dimensions
@@ -129,10 +129,10 @@ public class SeamCarving {
 		public void addKVerticalSeams(BufferedImage outputImg, int k) {
 			int[] seamIndex;
 			int[][] removedSeams = new int[k][this.image.getHeight()];
-//			// Energy map initialization
-//			calcGradientMap(isEntropyActive);
-//			// Calculate the energy of the Image
-//			calcEnergyMap(isSimple);
+			//			// Energy map initialization
+			//			calcGradientMap(isEntropyActive);
+			//			// Calculate the energy of the Image
+			//			calcEnergyMap(isSimple);
 			processImage();
 			// REMOVING k seams in order to ADD and duplicate them later
 			for (int seam = 0; seam < k; seam++) {
@@ -187,13 +187,35 @@ public class SeamCarving {
 						this.energyMap[j][i] = this.gradientMap[j][i];
 				}
 			}
-			// use dynamic programming to calculate the seam energy map
-			for (int y = 1; y < getHeight(); y++) {
-				for (int x = 0; x < getWidth(); x++) {
-					south = energyMap[y - 1][x];
-					southWest = x > 0 && !isSimple ? energyMap[y - 1][x - 1] : Double.MAX_VALUE;
-					southEast = x < getWidth() - 1 && !isSimple ? energyMap[y - 1][x + 1] : Double.MAX_VALUE;
-					energyMap[y][x] = energyMap[y][x] + Math.min(Math.min(southEast, southWest), south);
+			// use dynamic programming to calculate the seam energy map - backwards energy
+			if (this.energyMethod == 0) {
+				for (int y = 1; y < getHeight(); y++) {
+					for (int x = 0; x < getWidth(); x++) {
+						south = energyMap[y - 1][x];
+						southWest = x > 0 && !isSimple ? energyMap[y - 1][x - 1] : Double.MAX_VALUE;
+						southEast = x < getWidth() - 1 && !isSimple ? energyMap[y - 1][x + 1] : Double.MAX_VALUE;
+						energyMap[y][x] = energyMap[y][x] + Math.min(Math.min(southEast, southWest), south);
+					}
+				}
+			} else {
+				// using forward energy
+				double cl = 0;
+				double cu = 0;
+				double cr = 0;
+				for (int y = 1; y < getHeight(); y++) {
+					for (int x = 0; x < getWidth(); x++) {
+						cl = Math.abs(this.gradientMap[y+1][x] - this.gradientMap[y-1][x]) +
+								Math.abs(this.gradientMap[y][x-1]-this.gradientMap[y-1][x]);
+						
+						cu = Math.abs(this.gradientMap[y+1][x] - this.gradientMap[y-1][x]);
+						
+						cr = Math.abs(this.gradientMap[y+1][x] - this.gradientMap[y-1][x]) +
+								Math.abs(this.gradientMap[y][x-1] - this.gradientMap[y+1][x]);
+						
+						this.energyMap[y][x] = this.gradientMap[y][x] + 
+								Math.min(Math.min(this.energyMap[y-1][x-1] + cl, this.energyMap[y][x-1] + cu),
+										this.energyMap[y+1][x-1] + cr);
+					}
 				}
 			}
 		}
@@ -453,8 +475,8 @@ public class SeamCarving {
 			}
 			return seamToRemove;
 		}
-		
-		
+
+
 		/**
 		 * Adds a vertical seam, same logic as removeVerticalSeam BUT needs to receive the seam
 		 * @param outputImg: new image object with the required dimensions
@@ -529,7 +551,7 @@ public class SeamCarving {
 					// gets the hue value between blue and red
 					float hue = (float) (Color.RGBtoHSB(0, 0, 255, null)[0]
 							+ (Color.RGBtoHSB(255, 0, 0, null)[0] - Color.RGBtoHSB(0, 0, 255, null)[0])
-									* (array[i][j] - min) / (max - min));
+							* (array[i][j] - min) / (max - min));
 					val = Color.getHSBColor(hue, 1, 1);
 					image.setRGB(j, i, val.getRGB());
 				}
@@ -566,7 +588,7 @@ public class SeamCarving {
 
 			// TODO: Remove. To set the cropping dimensions.
 			outputWidth = imgWrap.getWidth() - 50;
-			outputHeight = imgWrap.getHeight() - 50;
+			outputHeight = imgWrap.getHeight() + 50;
 
 			System.out.printf("Old dimensions: (%d, %d)\nNew dimensions: (%d, %d)\n", imgWrap.getWidth(),
 					imgWrap.getHeight(), outputWidth, outputHeight);
@@ -574,7 +596,7 @@ public class SeamCarving {
 			alterCols = imgWrap.getWidth() - outputWidth;
 			alterRows = imgWrap.getHeight() - outputHeight;
 
-			
+
 			if (alterCols != 0) {
 				if (alterCols > 0) {
 					System.out.println("Removing vertical seams");
@@ -615,12 +637,12 @@ public class SeamCarving {
 					imgWrap.addKVerticalSeams(outputImg, Math.abs(alterRows));
 					imgWrap.setImage(outputImg);
 					//tranposing the output image back
-//					for (int x=0; x<imgWrap.getWidth(); x++) {
-//						for (int y=0; y<imgWrap.getHeight(); y++) {
-//							outputImg.setRGB(x, y, imgWrap.image.getRGB(x, y));
-//						}
-//					}
-//					imgWrap.image = outputImg;
+					//					for (int x=0; x<imgWrap.getWidth(); x++) {
+					//						for (int y=0; y<imgWrap.getHeight(); y++) {
+					//							outputImg.setRGB(x, y, imgWrap.image.getRGB(x, y));
+					//						}
+					//					}
+					//					imgWrap.image = outputImg;
 					// Revert back to normal rotation
 					imgWrap.transposeImage();
 				}
