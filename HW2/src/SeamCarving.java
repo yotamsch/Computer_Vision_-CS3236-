@@ -1,10 +1,12 @@
 import java.awt.Color;
+import java.awt.GradientPaint;
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
 import com.sun.corba.se.impl.encoding.OSFCodeSetRegistry.Entry;
+import com.sun.prism.paint.Gradient;
 import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
 
 import java.io.BufferedWriter;
@@ -134,27 +136,19 @@ public class SeamCarving {
 			// REMOVING k seams in order to ADD and duplicate them later
 			for (int seam = 0; seam < k; seam++) {
 				removedSeams[seam] = removeVerticalSeam();
+				// since "removing" K seams needs to correct  
+				// the seam position relative to the original image
+				for (int i = 0; i < removedSeams[seam].length; i++) {
+					removedSeams[seam][i] += seam;
+				}
 				resizeImage(getWidth() - 1, getHeight());
 				processImage();
 
 			}
 
-			// Traversing the list removedSeams BACKWARDS in order to re-add and duplicate
-			// the removed seams
-			// This calculates the correct positioning on the added seams
-			for (int seam = k - 1; seam >= 0; seam--) {
-				for (int innerSeam = k - 1; innerSeam > seam; innerSeam--) {
-					for (int row = 0; row < outputImg.getHeight(); row++) {
-						if (removedSeams[seam][row] <= removedSeams[innerSeam][row]) {
-							removedSeams[innerSeam][row] += 1;
-						}
-					}
-				}
+			for (int seam = 0; seam < k; seam++) {
+				addVerticalSeam(outputImg, removedSeams[seam], true);
 			}
-			for (int seam = k - 1; seam >= 0; seam--) {
-				addVerticalSeam(outputImg, removedSeams[seam], false);
-			}
-
 			// reset the image to be the modified one
 			this.image = outputImg;
 			processImage(); // just in case
@@ -493,20 +487,46 @@ public class SeamCarving {
 		 *            the seams
 		 */
 		private void addVerticalSeam(BufferedImage outputImg, int[] seamToAdd, boolean isInterp) {
-			for (int y = 0; y < this.image.getHeight(); y++) {
+			// shifts all pixels before seam to the right (thus duplicating the seam
+			for (int y = 0; y < outputImg.getHeight(); y++) {
 				for (int x = outputImg.getWidth() - 1; x > seamToAdd[y]; x--) {
-					// shifting all row, starting from the new pixels, to the right:
 					outputImg.setRGB(x, y, outputImg.getRGB(x - 1, y));
 				}
-				// adding the seam, averaging its colour with its neighbours:
-				int seamRgb = 0;
+				// adding the seam, averaging its colour with its neighbors 8
 				if (isInterp) {
-					seamRgb = (outputImg.getRGB(seamToAdd[y], y) + outputImg.getRGB(seamToAdd[y] + 1, y)) / 2;
-				} else {
-					seamRgb = outputImg.getRGB(seamToAdd[y], y);
+					Color interC = interpolateSeamColorsAtIndex(outputImg, seamToAdd, y);
+					outputImg.setRGB(seamToAdd[y], y, interC.getRGB());
 				}
-				outputImg.setRGB(seamToAdd[y], y, seamRgb);
 			}
+		}
+
+		private Color interpolateSeamColorsAtIndex(BufferedImage outputImg, int[] seamToAdd, int y) {
+			Color interC;
+			// color interpolation
+			{
+				int r = 0, g = 0, b = 0;
+				int delim = 0;
+				int x_start = Math.max(seamToAdd[y] - 1, 0);
+				int x_finish = Math.min(seamToAdd[y] + 1, outputImg.getWidth() - 1);
+				int y_start = Math.max(y - 1, 0);
+				int y_finish = Math.min(y + 1, outputImg.getHeight() - 1);
+				Color c;
+				for (int k = x_start; k <= x_finish; k++) {
+					for (int l = y_start; l <= y_finish; l++) {
+						delim++;
+						c = new Color (outputImg.getRGB(k,l));
+						r += c.getRed();
+						g += c.getGreen();
+						b += c.getBlue();
+					}
+				}
+				r /= delim;
+				g /= delim;
+				b /= delim;
+				
+				interC = new Color(r, g, b);
+			}
+			return interC;
 		}
 
 		/**
@@ -594,7 +614,7 @@ public class SeamCarving {
 			ImageWrapper imgWrap = new ImageWrapper(inputFileName, 0);
 
 			// TODO: Remove. To set the cropping dimensions.
-			outputWidth = imgWrap.getWidth() + 100;
+			outputWidth = imgWrap.getWidth() - 150;
 			outputHeight = imgWrap.getHeight() - 0;
 
 			System.out.printf("Old dimensions: (%d, %d)\nNew dimensions: (%d, %d)\n", imgWrap.getWidth(),
