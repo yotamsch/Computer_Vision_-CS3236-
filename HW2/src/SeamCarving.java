@@ -83,6 +83,10 @@ public class SeamCarving {
 		public BufferedImage getImage() {
 			return this.image;
 		}
+		
+		public void setImage(BufferedImage img) {
+			this.image = img;
+		}
 
 		public void processImage() {
 			// load the color map if image loaded correct
@@ -113,6 +117,43 @@ public class SeamCarving {
 				processImage();
 				removeVerticalSeam();
 				resizeImage(0, 0, getWidth() - 1, getHeight());
+			}
+		}
+		
+		/**
+		 * Adds K vertical seams, see removeKVerticalSeams
+		 * @param outputImg: new image object with the required dimensions
+		 * @param k: The number of seams to remove.
+		 * @param isSimple: Represents is it a simple seam removal
+		 */
+		public void addKVerticalSeams(BufferedImage outputImg, int k) {
+			int[] seamIndex;
+			int[][] removedSeams = new int[k][this.image.getHeight()];
+//			// Energy map initialization
+//			calcGradientMap(isEntropyActive);
+//			// Calculate the energy of the Image
+//			calcEnergyMap(isSimple);
+			processImage();
+			// REMOVING k seams in order to ADD and duplicate them later
+			for (int seam = 0; seam < k; seam++) {
+				removedSeams[seam] = removeVerticalSeam();
+				resizeImage(0, 0, getWidth() - 1, getHeight());
+				processImage();
+
+			}
+
+			//Traversing the list removedSeams BACKWARDS in order to re-add and duplicate the removed seams
+			for (int seam = k-1; seam >= 0; seam--) {
+				for (int innerSeam = k-1; innerSeam > seam; innerSeam--) {
+					for (int row = 0; row < outputImg.getHeight(); row++) {
+						if (removedSeams[seam][row] <= removedSeams[innerSeam][row]) {
+							removedSeams[innerSeam][row] +=1 ;
+						}
+					}
+				}
+			}
+			for (int seam = k-1; seam >= 0; seam--) {
+				seamIndex = addVerticalSeam(outputImg, removedSeams[seam], false);
 			}
 		}
 
@@ -412,6 +453,32 @@ public class SeamCarving {
 			}
 			return seamToRemove;
 		}
+		
+		
+		/**
+		 * Adds a vertical seam, same logic as removeVerticalSeam BUT needs to receive the seam
+		 * @param outputImg: new image object with the required dimensions
+		 * @param seamToAdd
+		 * @param isInterp: should the added seams' colour be interpolated. If not - double the seams
+		 */
+		private int[] addVerticalSeam(BufferedImage outputImg, int[] seamToAdd, boolean isInterp) {
+			for (int y = 0; y < this.image.getHeight(); y++) {
+				for (int x = outputImg.getWidth()-1; x > seamToAdd[y]; x--) {
+					//shifting all row, starting from the new pixels, to the right:
+					outputImg.setRGB(x, y, outputImg.getRGB(x-1,  y));
+				}
+				// adding the seam, averaging its colour with its neighbours:
+				int seamRgb = 0;
+				if (isInterp) {
+					seamRgb = (outputImg.getRGB(seamToAdd[y], y) + outputImg.getRGB(seamToAdd[y]+1, y))/2; //this is the colour of the new column
+				} else {
+					seamRgb = outputImg.getRGB(seamToAdd[y], y);
+				}
+				outputImg.setRGB(seamToAdd[y], y, seamRgb);
+			}
+			//width = width - 1;
+			return seamToAdd;
+		}
 
 		private void resizeImage(int fromX, int fromY, int toX, int toY) {
 			// TODO Auto-generated method stub
@@ -491,17 +558,17 @@ public class SeamCarving {
 			energyType = Integer.valueOf(args[4]);
 		}
 
-		inputFileName = "sm.jpg";
-		outputFileName = "sm_output.jpg";
+		inputFileName = "lake.jpg";
+		outputFileName = "lake_output.jpg";
 
 		try {
 			ImageWrapper imgWrap = new ImageWrapper(inputFileName, 1);
 
 			// TODO: Remove. To set the cropping dimensions.
-			outputWidth = imgWrap.getWidth() - 100;
-			outputHeight = imgWrap.getHeight() - 100;
+			outputWidth = imgWrap.getWidth();
+			outputHeight = imgWrap.getHeight() + 50;
 
-			System.out.printf("Old dimensions: (%d, %d)\nNewdimensions: (%d, %d)\n", imgWrap.getWidth(),
+			System.out.printf("Old dimensions: (%d, %d)\nNew dimensions: (%d, %d)\n", imgWrap.getWidth(),
 					imgWrap.getHeight(), outputWidth, outputHeight);
 
 			alterCols = imgWrap.getWidth() - outputWidth;
@@ -512,6 +579,18 @@ public class SeamCarving {
 					System.out.println("Removing vertical seams");
 					// Remove K vertical seams
 					imgWrap.removeKVerticalSeams(Math.abs(alterCols));
+				} else {
+					System.out.println("Adding vertical seams");
+					// Create an output BufferedImage with the new size
+					BufferedImage outputImg = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_INT_RGB);
+					for (int x=0; x<imgWrap.getWidth(); x++) {
+						for (int y=0; y<imgWrap.getHeight(); y++) {
+							outputImg.setRGB(x, y, imgWrap.image.getRGB(x, y));
+						}
+					}
+					// Add K vertical seams
+					imgWrap.addKVerticalSeams(outputImg, Math.abs(alterCols));
+					imgWrap.image = outputImg;
 				}
 			}
 			if (alterRows != 0) {
@@ -520,6 +599,27 @@ public class SeamCarving {
 					// Remove K horizontal seams
 					imgWrap.transposeImage();
 					imgWrap.removeKVerticalSeams(Math.abs(alterRows));
+					// Revert back to normal rotation
+					imgWrap.transposeImage();
+				} else {
+					System.out.println("Adding horizontal seams");
+					// Add K horizontal seams
+					imgWrap.transposeImage();
+					BufferedImage outputImg = new BufferedImage(outputHeight, outputWidth, BufferedImage.TYPE_INT_RGB);
+					for (int x=0; x<imgWrap.getWidth(); x++) {
+						for (int y=0; y<imgWrap.getHeight(); y++) {
+							outputImg.setRGB(x, y, imgWrap.image.getRGB(x, y));
+						}
+					}
+					imgWrap.addKVerticalSeams(outputImg, Math.abs(alterRows));
+					imgWrap.setImage(outputImg);
+					//tranposing the output image back
+//					for (int x=0; x<imgWrap.getWidth(); x++) {
+//						for (int y=0; y<imgWrap.getHeight(); y++) {
+//							outputImg.setRGB(x, y, imgWrap.image.getRGB(x, y));
+//						}
+//					}
+//					imgWrap.image = outputImg;
 					// Revert back to normal rotation
 					imgWrap.transposeImage();
 				}
