@@ -470,7 +470,6 @@ public class SeamCarving {
 		int alterRows;
 
 		try {
-
 			inputFileName = args[0];
 			outputFileName = args[4];
 			outputWidth = Integer.valueOf(args[1]);
