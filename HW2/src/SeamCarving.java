@@ -1,52 +1,21 @@
 import java.awt.Color;
-import java.awt.GradientPaint;
-import java.awt.geom.AffineTransform;
-import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
-
-import com.sun.corba.se.impl.encoding.OSFCodeSetRegistry.Entry;
-import com.sun.prism.paint.Gradient;
-import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
-
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.Math;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Queue;
 
 public class SeamCarving {
-	static double alpha = 0.5; // the weight of the energy function when combining with entropy
-	static double noise = 0.000001; // TODO: maybe delete is used in (better) entropy
+	static final double alpha = 0.5; // the linear combination coefficient
+	static final double noise = Math.pow(10, -9); // sometimes prevents entropy errors (log 0)
 	static boolean isSimple = false; // is simple (direct) or complex (diagonal)
-
-	// TODO: REMOVE
-	public static void printDouble2DArrayToFile(double[][] a, String path) {
-		try {
-			File file = new File(path);
-			FileWriter writer = new FileWriter(file);
-			BufferedWriter output = new BufferedWriter(writer);
-			for (double[] array : a) {
-				for (double item : array) {
-					output.write(String.format("%.4f", item));
-					output.write(" ");
-				}
-				output.write("\n");
-			}
-			output.close();
-		} catch (IOException e) {
-
-		}
-	}
-
+	static boolean isInterp = true; // do we want to interpolate the added pixels
+	
 	static class ImageWrapper {
-		private BufferedImage image;
-		int energyMethod; // 0 = normal, 1 = entropy, 2 = forward
+		public BufferedImage image;
+		public BufferedImage imageCopy; // used to print the seam marking
+		private boolean isTranspose = false; // is the image currently transposed
+		private int energyMethod; // 0 = normal, 1 = entropy, 2 = forward
 		private Color[][] colorMap; // the Colors map of the image
 		private double[][] gradientMap; // The gradient map of the image
 		private double[][] pmnMap; // The f(m,n) sum map of the image
@@ -55,23 +24,8 @@ public class SeamCarving {
 
 		public ImageWrapper(String pathToImage, int energyMethod) throws IOException {
 			this.image = ImageIO.read(new File(pathToImage));
+			this.imageCopy = ImageIO.read(new File(pathToImage));
 			this.energyMethod = energyMethod;
-
-			// TODO: Remove before submission, just for debug
-			{
-				processImage();
-				saveImageFromDoubleArray(gradientMap, "sm_grad_map.jpg", BufferedImage.TYPE_INT_RGB);
-				saveImageFromDoubleArray(energyMap, "sm_energy_map.jpg", BufferedImage.TYPE_INT_RGB);
-				
-				if (this.energyMethod == 0) {
-					System.out.println("Using gradient only.");
-				}
-				if (this.energyMethod == 1) {
-					System.out.println("Using gradient and entropy.");
-					saveImageFromDoubleArray(pmnMap, "sm_pmn_map.jpg", BufferedImage.TYPE_BYTE_GRAY);
-					saveImageFromDoubleArray(entropyMap, "sm_entropy_map.jpg", BufferedImage.TYPE_BYTE_GRAY);
-				}
-			}
 		}
 
 		public int getWidth() {
@@ -82,19 +36,13 @@ public class SeamCarving {
 			return this.image.getHeight();
 		}
 
-		public BufferedImage getImage() {
-			return this.image;
-		}
-
 		public void processImage() {
 			// load the color map if image loaded correct
 			initializeColorMap();
 			// basically want to calculate the gradient/energy and entropy
 			if (this.energyMethod == 1) {
-				// calculatePmnMap();
-				// calculateEntropyMap();
-				calculatePmnMapNAIVE();
-				calculateEntropyMapNAIVE();
+				calculatePmnMap();
+				calculateEntropyMap();
 			}
 			calculateGradientMap();
 			calculateEnergyMap();
@@ -111,7 +59,11 @@ public class SeamCarving {
 		public void removeKVerticalSeams(int k) {
 			for (int seam = 0; seam < k; seam++) {
 				processImage();
-				removeVerticalSeam();
+				int[] sm = removeVerticalSeam();
+				for (int i = 0; i < sm.length; i++) {
+					sm[i] += seam;
+				}
+				markSeamInCopy(sm);
 				this.image = resizeImage(getWidth() - 1, getHeight());
 			}
 		}
@@ -128,26 +80,43 @@ public class SeamCarving {
 		 */
 		public void addKVerticalSeams(int k) {
 			int[][] removedSeams = new int[k][this.image.getHeight()];
+			int[][] seamsToAdd = new int[k][this.image.getHeight()];
 
-			// get a duplicate of the image with the correct dimensions
+			// get a duplicate of the image prior to seam removal
+			// the copy has enough space for the duplicated seams
 			BufferedImage outputImg = resizeImage(getWidth() + k, getHeight());
 
 			processImage();
-			// REMOVING k seams in order to ADD and duplicate them later
+			// REMOVING k seams in order to duplicate them later
 			for (int seam = 0; seam < k; seam++) {
 				removedSeams[seam] = removeVerticalSeam();
-				// since "removing" K seams needs to correct  
-				// the seam position relative to the original image
+				// since "removing" K seams needs to correct the
+				// seam position relative to the original image
 				for (int i = 0; i < removedSeams[seam].length; i++) {
 					removedSeams[seam][i] += seam;
 				}
-				resizeImage(getWidth() - 1, getHeight());
+				this.image = resizeImage(getWidth() - 1, getHeight());
 				processImage();
+			}
 
+			// needs to adjust seam location bases on
+			// how many are "bigger" that it
+			for (int i = 0; i < removedSeams.length; i++) {
+				// over all indices
+				for (int sidx = 0; sidx < removedSeams[0].length; sidx++) {
+					seamsToAdd[i][sidx] = removedSeams[i][sidx];
+					// over all other seams
+					for (int i2 = 0; i2 < i; i2++) {
+						if (removedSeams[i][sidx] > removedSeams[i2][sidx]) {
+							seamsToAdd[i][sidx] += 1;
+						}
+					}
+				}
 			}
 
 			for (int seam = 0; seam < k; seam++) {
-				addVerticalSeam(outputImg, removedSeams[seam], true);
+				markSeamInCopy(removedSeams[seam]);
+				addVerticalSeam(outputImg, seamsToAdd[seam]);
 			}
 			// reset the image to be the modified one
 			this.image = outputImg;
@@ -166,14 +135,39 @@ public class SeamCarving {
 				for (int x = 0; x < w; x++)
 					transposedImage.setRGB(y, x, this.image.getRGB(x, y));
 
+			isTranspose = !isTranspose;
 			this.image = transposedImage;
+		}
+
+		public void saveAnalysis(String outputFolder) throws IOException {
+			processImage(); // just in case
+			saveImageFromDoubleArray(gradientMap, outputFolder + "sm_grad_map.jpg", BufferedImage.TYPE_INT_RGB);
+			saveImageFromDoubleArray(energyMap, outputFolder + "sm_energy_map.jpg", BufferedImage.TYPE_INT_RGB);
+			if (this.energyMethod == 1) {
+				saveImageFromDoubleArray(pmnMap, outputFolder + "sm_pmn_map.jpg", BufferedImage.TYPE_BYTE_GRAY);
+				saveImageFromDoubleArray(entropyMap, outputFolder + "sm_entropy_map.jpg", BufferedImage.TYPE_BYTE_GRAY);
+			}
+		}
+
+		private void markSeamInCopy(int[] seam) {
+			int i = 0;
+			try {
+				for (i = 0; i < seam.length; i++) {
+					if (isTranspose)
+						this.imageCopy.setRGB(i, seam[i], Color.RED.getRGB());
+					else
+						this.imageCopy.setRGB(seam[i], i, Color.RED.getRGB());
+				}
+			} catch (Exception e) {
+				System.out.printf("ERROR: x=%d y=%d", seam[i], i);
+			}
 		}
 
 		private void calculateEnergyMap() {
 			this.energyMap = new double[getHeight()][getWidth()];
-			double southWest;
-			double south;
-			double southEast;
+			double southWest = 0, south = 0, southEast = 0;
+			double cl = 0, cu = 0, cr = 0;
+			double p_r = 0, p_l = 0, p_u = 0;
 			// initialize the the energy map
 			for (int j = 0; j < getHeight(); j++) {
 				for (int i = 0; i < getWidth(); i++) {
@@ -185,39 +179,27 @@ public class SeamCarving {
 				}
 			}
 			// use dynamic programming to calculate the seam energy map - backwards energy
-			if (this.energyMethod == 2) {
-				// using forward energy
-				double cl = 0;
-				double cu = 0;
-				double cr = 0;
-				for (int y = 1; y < getHeight(); y++) {
-					for (int x = 0; x < getWidth(); x++) {
-						cl = Math.abs(this.gradientMap[y + 1][x] - this.gradientMap[y - 1][x])
-								+ Math.abs(this.gradientMap[y][x - 1] - this.gradientMap[y - 1][x]);
-
-						cu = Math.abs(this.gradientMap[y + 1][x] - this.gradientMap[y - 1][x]);
-
-						cr = Math.abs(this.gradientMap[y + 1][x] - this.gradientMap[y - 1][x])
-								+ Math.abs(this.gradientMap[y][x - 1] - this.gradientMap[y + 1][x]);
-
-						this.energyMap[y][x] = this.gradientMap[y][x]
-								+ Math.min(Math.min(this.energyMap[y - 1][x - 1] + cl, this.energyMap[y][x - 1] + cu),
-										this.energyMap[y + 1][x - 1] + cr);
+			for (int y = 1; y < getHeight(); y++) {
+				for (int x = 0; x < getWidth(); x++) {
+					if (this.energyMethod == 2) {
+						// using forward energy, so calculate the additions (otherwise they remain 0)
+						p_r = x < getWidth() - 1 ? this.gradientMap[y][x + 1] : 0;
+						p_l = x > 0 ? this.gradientMap[y][x - 1] : 0;
+						p_u = this.gradientMap[y - 1][x];
+						cl = !isSimple ? Math.abs(p_r - p_l) + Math.abs(p_u - p_l) : Double.MAX_VALUE / 2;
+						cu = Math.abs(p_r - p_l);
+						cr = !isSimple ? Math.abs(p_r - p_l) + Math.abs(p_u - p_r) : Double.MAX_VALUE / 2;
 					}
-				}
-			} else {
-				for (int y = 1; y < getHeight(); y++) {
-					for (int x = 0; x < getWidth(); x++) {
-						south = energyMap[y - 1][x];
-						southWest = x > 0 && !isSimple ? energyMap[y - 1][x - 1] : Double.MAX_VALUE;
-						southEast = x < getWidth() - 1 && !isSimple ? energyMap[y - 1][x + 1] : Double.MAX_VALUE;
-						energyMap[y][x] = energyMap[y][x] + Math.min(Math.min(southEast, southWest), south);
-					}
+					south = energyMap[y - 1][x];
+					southWest = x > 0 && !isSimple ? energyMap[y - 1][x - 1] : Double.MAX_VALUE / 2;
+					southEast = x < getWidth() - 1 && !isSimple ? energyMap[y - 1][x + 1] : Double.MAX_VALUE / 2;
+
+					energyMap[y][x] = energyMap[y][x] + Math.min(Math.min(southEast + cr, southWest + cl), south + cu);
 				}
 			}
 		}
 
-		private void calculateEntropyMapNAIVE() {
+		private void calculateEntropyMap() {
 			this.entropyMap = new double[getHeight()][getWidth()];
 			int x_start, x_finish, y_start, y_finish;
 			for (int l = 0; l < getHeight(); l++) {
@@ -236,57 +218,7 @@ public class SeamCarving {
 			}
 		}
 
-		private void calculateEntropyMap() {
-			this.entropyMap = new double[getHeight()][getWidth()];
-			Queue<Double> colKeep = new ArrayDeque<Double>(5);
-
-			int x_start, x_finish, y_start, y_finish;
-			double entropy, colEntropy;
-
-			for (int j = 1; j < getHeight(); j++) {
-				// calculate for the first pixel in the row and insert into queue
-				entropy = 0;
-
-				x_start = 0;
-				x_finish = 4;
-				y_start = Math.max(j - 4, 0);
-				y_finish = Math.min(j + 4, getHeight() - 1);
-				for (int k = x_start; k <= x_finish; k++) {
-					colEntropy = 0;
-					for (int l = y_start; l <= y_finish; l++) {
-						colEntropy -= pmnMap[k][l] * Math.log(pmnMap[k][l]);
-					}
-
-					colKeep.add(colEntropy);
-					entropy += colEntropy;
-				}
-				this.entropyMap[j][0] = entropy;
-
-				for (int i = 1; i < getWidth(); i++) {
-					// current = last_pixel + right row - row
-					colEntropy = 0;
-					if (i < getWidth() - 5) {
-						// right_row = ...
-						x_finish = Math.min(i + 4, getWidth() - 1);
-						y_start = Math.max(j - 4, 0);
-						y_finish = Math.min(j + 4, getHeight() - 1);
-						for (int l = y_start; l <= y_finish; l++) {
-							colEntropy -= pmnMap[l][x_finish] * Math.log(pmnMap[l][x_finish]);
-						}
-
-						// queue.enqueue(right_row)
-						colKeep.add(colEntropy);
-					}
-
-					// current = last_pixel + right_row - queue.dequeue()
-					this.entropyMap[j][i] = this.entropyMap[j][i - 1] - colEntropy;
-					if (i > 4)
-						this.entropyMap[j][i] += colKeep.poll();
-				}
-			}
-		}
-
-		private void calculatePmnMapNAIVE() {
+		private void calculatePmnMap() {
 			this.pmnMap = new double[getHeight()][getWidth()];
 			int x_start, x_finish, y_start, y_finish;
 			for (int l = 0; l < getHeight(); l++) {
@@ -302,62 +234,6 @@ public class SeamCarving {
 						}
 					}
 					this.pmnMap[l][k] = getPixelGrayscale(l, k) / this.pmnMap[l][k] + noise;
-				}
-			}
-		}
-
-		private void calculatePmnMap() {
-			this.pmnMap = new double[getHeight()][getWidth()];
-			Queue<Double> colKeep = new ArrayDeque<Double>(10);
-
-			int x_start, x_finish, y_start, y_finish;
-			double colDenominator;
-			int i, j, k, l;
-			for (j = 0; j < getHeight(); j++) {
-				// calculate for the first pixel in the row and insert into queue
-				this.pmnMap[j][0] = 0;
-				x_start = 0;
-				x_finish = 4;
-				y_start = Math.max(j - 4, 0);
-				y_finish = Math.min(j + 4, getHeight() - 1);
-				for (k = x_start; k <= x_finish; k++) {
-					colDenominator = 0;
-					for (l = y_start; l <= y_finish; l++) {
-						colDenominator += getPixelGrayscale(l, k);
-					}
-					colKeep.add(colDenominator);
-					this.pmnMap[j][0] += colDenominator;
-				}
-
-				for (i = 1; i < getWidth(); i++) {
-					colDenominator = 0;
-					if (i < getWidth() - 5) {
-						// right_row = ...
-						x_finish = i + 4;
-						y_start = Math.max(j - 4, 0);
-						y_finish = Math.min(j + 4, getHeight() - 1);
-						for (l = y_start; l <= y_finish; l++) {
-							colDenominator += getPixelGrayscale(l, x_finish);
-							// System.out.printf("(%d, %d) - %d: %.5f",j,i,l, getPixelGrayscale(l,
-							// x_finish));
-							// System.out.println();
-						}
-						// queue.enqueue(right_row)
-						colKeep.add(colDenominator);
-					}
-					// System.out.printf("(%d, %d): %.5f",j,i, colDenominator);
-					// System.out.println();
-
-					// current = last_pixel + right_row - queue.dequeue()
-					this.pmnMap[j][i] = this.pmnMap[j][i - 1] + colDenominator;
-					if (i > 4) {
-						this.pmnMap[j][i] = this.pmnMap[j][i] - colKeep.poll();
-					}
-				}
-			}
-			for (j = 0; j < getHeight(); j++) {
-				for (i = 0; i < getWidth(); i++) {
-					this.pmnMap[j][i] = getPixelGrayscale(j, i) / this.pmnMap[j][i] + noise;
 				}
 			}
 		}
@@ -486,7 +362,7 @@ public class SeamCarving {
 		 *            should the added seams' colour be interpolated. If not - double
 		 *            the seams
 		 */
-		private void addVerticalSeam(BufferedImage outputImg, int[] seamToAdd, boolean isInterp) {
+		private void addVerticalSeam(BufferedImage outputImg, int[] seamToAdd) {
 			// shifts all pixels before seam to the right (thus duplicating the seam
 			for (int y = 0; y < outputImg.getHeight(); y++) {
 				for (int x = outputImg.getWidth() - 1; x > seamToAdd[y]; x--) {
@@ -502,30 +378,27 @@ public class SeamCarving {
 
 		private Color interpolateSeamColorsAtIndex(BufferedImage outputImg, int[] seamToAdd, int y) {
 			Color interC;
-			// color interpolation
-			{
-				int r = 0, g = 0, b = 0;
-				int delim = 0;
-				int x_start = Math.max(seamToAdd[y] - 1, 0);
-				int x_finish = Math.min(seamToAdd[y] + 1, outputImg.getWidth() - 1);
-				int y_start = Math.max(y - 1, 0);
-				int y_finish = Math.min(y + 1, outputImg.getHeight() - 1);
-				Color c;
-				for (int k = x_start; k <= x_finish; k++) {
-					for (int l = y_start; l <= y_finish; l++) {
-						delim++;
-						c = new Color (outputImg.getRGB(k,l));
-						r += c.getRed();
-						g += c.getGreen();
-						b += c.getBlue();
-					}
+			int r = 0, g = 0, b = 0;
+			int delim = 0;
+			int x_start = Math.max(seamToAdd[y] - 1, 0);
+			int x_finish = Math.min(seamToAdd[y] + 1, outputImg.getWidth() - 1);
+			int y_start = Math.max(y - 1, 0);
+			int y_finish = Math.min(y + 1, outputImg.getHeight() - 1);
+			Color c;
+			for (int k = x_start; k <= x_finish; k++) {
+				for (int l = y_start; l <= y_finish; l++) {
+					delim++;
+					c = new Color(outputImg.getRGB(k, l));
+					r += c.getRed();
+					g += c.getGreen();
+					b += c.getBlue();
 				}
-				r /= delim;
-				g /= delim;
-				b /= delim;
-				
-				interC = new Color(r, g, b);
 			}
+			r /= delim;
+			g /= delim;
+			b /= delim;
+
+			interC = new Color(r, g, b);
 			return interC;
 		}
 
@@ -557,38 +430,34 @@ public class SeamCarving {
 	 *            The double 2D-array.
 	 * @param outPath
 	 *            The output path to save to.
+	 * @throws IOException
 	 */
-	private static void saveImageFromDoubleArray(double[][] array, String outPath, int colorType) {
-		try {
-			int width = array[0].length;
-			int height = array.length;
-			Color val;
-			double min = Double.MAX_VALUE;
-			double max = 0;
-			// get the maximum and minimum values
-			for (int i = 0; i < height; i++) {
-				for (int j = 0; j < width; j++) {
-					max = Math.max(max, array[i][j]);
-					min = Math.min(min, array[i][j]);
-				}
+	private static void saveImageFromDoubleArray(double[][] array, String outPath, int colorType) throws IOException {
+		int width = array[0].length;
+		int height = array.length;
+		Color val;
+		double min = Double.MAX_VALUE;
+		double max = 0;
+		// get the maximum and minimum values
+		for (int i = 0; i < height; i++) {
+			for (int j = 0; j < width; j++) {
+				max = Math.max(max, array[i][j]);
+				min = Math.min(min, array[i][j]);
 			}
-			BufferedImage image = new BufferedImage(width, height, colorType);
-			for (int i = 0; i < height; i++) {
-				for (int j = 0; j < width; j++) {
-					// gets the hue value between blue and red
-					float hue = (float) (Color.RGBtoHSB(0, 0, 255, null)[0]
-							+ (Color.RGBtoHSB(255, 0, 0, null)[0] - Color.RGBtoHSB(0, 0, 255, null)[0])
-									* (array[i][j] - min) / (max - min));
-					val = Color.getHSBColor(hue, 1, 1);
-					image.setRGB(j, i, val.getRGB());
-				}
-			}
-
-			ImageIO.write(image, "jpg", new File(outPath));
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
+		BufferedImage image = new BufferedImage(width, height, colorType);
+		for (int i = 0; i < height; i++) {
+			for (int j = 0; j < width; j++) {
+				// gets the hue value between blue and red
+				float hue = (float) (Color.RGBtoHSB(0, 0, 255, null)[0]
+						+ (Color.RGBtoHSB(255, 0, 0, null)[0] - Color.RGBtoHSB(0, 0, 255, null)[0])
+								* (array[i][j] - min) / (max - min));
+				val = Color.getHSBColor(hue, 1, 1);
+				image.setRGB(j, i, val.getRGB());
+			}
+		}
+
+		ImageIO.write(image, "jpg", new File(outPath));
 	}
 
 	public static void main(String[] args) {
@@ -599,37 +468,35 @@ public class SeamCarving {
 		int energyType;
 		int alterCols;
 		int alterRows;
-
-		// TODO: make accessible when submitting
-		if (false) {
-			outputWidth = Integer.valueOf(args[2]);
-			outputHeight = Integer.valueOf(args[3]);
-			energyType = Integer.valueOf(args[4]);
-		}
-
-		inputFileName = "lake.jpg";
-		outputFileName = "lake_interp_2.png";
-
+		
 		try {
-			ImageWrapper imgWrap = new ImageWrapper(inputFileName, 0);
+			inputFileName = args[0];
+			outputFileName = args[4];
+			outputWidth = Integer.valueOf(args[1]);
+			outputHeight = Integer.valueOf(args[2]);
+			energyType = Integer.valueOf(args[3]);
+			
+			// not mandatory
+			if (args.length > 5)
+				isSimple = Boolean.valueOf(args[5]);
+			if (args.length > 6)
+				isInterp = Boolean.valueOf(args[6]);
 
-			// TODO: Remove. To set the cropping dimensions.
-			outputWidth = imgWrap.getWidth() - 150;
-			outputHeight = imgWrap.getHeight() - 0;
+			System.out.printf("Working on image '%s'\n", inputFileName);
 
-			System.out.printf("Old dimensions: (%d, %d)\nNew dimensions: (%d, %d)\n", imgWrap.getWidth(),
-					imgWrap.getHeight(), outputWidth, outputHeight);
+			ImageWrapper imgWrap = new ImageWrapper(inputFileName, energyType);
+			
+			// uncomment if want to print the analysis details
+			// imgWrap.saveAnalysis(args[4].substring(0, args[4].lastIndexOf("/") + 1));
 
 			alterCols = imgWrap.getWidth() - outputWidth;
 			alterRows = imgWrap.getHeight() - outputHeight;
 
 			if (alterCols != 0) {
 				if (alterCols > 0) {
-					System.out.println("Removing vertical seams");
 					// Remove K vertical seams
 					imgWrap.removeKVerticalSeams(Math.abs(alterCols));
 				} else {
-					System.out.println("Adding vertical seams");
 					// Add K vertical seams
 					imgWrap.addKVerticalSeams(Math.abs(alterCols));
 				}
@@ -638,11 +505,9 @@ public class SeamCarving {
 				// transpose for horizontal
 				imgWrap.transposeImage();
 				if (alterRows > 0) {
-					System.out.println("Removing horizontal seams");
 					// Remove K horizontal seams
 					imgWrap.removeKVerticalSeams(Math.abs(alterRows));
 				} else {
-					System.out.println("Adding horizontal seams");
 					// Add K horizontal seams
 					imgWrap.addKVerticalSeams(Math.abs(alterRows));
 				}
@@ -651,12 +516,20 @@ public class SeamCarving {
 			}
 
 			// Save the result
-			ImageIO.write(imgWrap.getImage(), "jpg", new File(outputFileName));
-			// ImageIO.write(imgOriginal, "jpg", new File(outputSeamsFileName));
-			System.out.println("DONE\n");
+			ImageIO.write(imgWrap.image, "jpg", new File(outputFileName));
+
+			// uncomment if want to print the seam markings
+			// ImageIO.write(imgWrap.imageCopy, "jpg", new File(args[4].substring(0, args[4].lastIndexOf("/") + 1) + "sm_marked.jpg"));
+
+			System.out.printf("Finiseh.\n");
 		} catch (IOException e) {
-			System.out.println("Could not open image file.\n");
+			System.out.println("Could not open image file.");
+		} catch (NumberFormatException e) {
+			System.out.println("Invalid arguments.");
+		} catch (ArrayIndexOutOfBoundsException e) {
+			System.out.println("Not enough arguments.");
+		} catch (Exception e) {
+			System.out.println("Unknown exception.");
 		}
 	}
-
 }
