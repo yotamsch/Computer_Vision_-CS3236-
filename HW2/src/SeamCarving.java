@@ -1,43 +1,19 @@
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.Math;
-import java.util.ArrayDeque;
-import java.util.Queue;
 
 public class SeamCarving {
-	static final double alpha = 0.5; // the linear combination coefficient 
-	static final double noise = Math.pow(10, -9); // TODO: maybe delete is used in (better) entropy
+	static final double alpha = 0.5; // the linear combination coefficient
+	static final double noise = Math.pow(10, -9); // sometimes prevents entropy errors (log 0)
 	static boolean isSimple = false; // is simple (direct) or complex (diagonal)
 	static boolean isInterp = true; // do we want to interpolate the added pixels
-	static final boolean DEBUG = true;
-
-	// TODO: REMOVE
-	public static void printDouble2DArrayToFile(double[][] a, String path) {
-		try {
-			File file = new File(path);
-			FileWriter writer = new FileWriter(file);
-			BufferedWriter output = new BufferedWriter(writer);
-			for (double[] array : a) {
-				for (double item : array) {
-					output.write(String.format("%.4f", item));
-					output.write(" ");
-				}
-				output.write("\n");
-			}
-			output.close();
-		} catch (IOException e) {
-
-		}
-	}
-
+	
 	static class ImageWrapper {
 		public BufferedImage image;
-		public BufferedImage imageCopy;
+		public BufferedImage imageCopy; // used to print the seam marking
 		private boolean isTranspose = false; // is the image currently transposed
 		private int energyMethod; // 0 = normal, 1 = entropy, 2 = forward
 		private Color[][] colorMap; // the Colors map of the image
@@ -50,8 +26,6 @@ public class SeamCarving {
 			this.image = ImageIO.read(new File(pathToImage));
 			this.imageCopy = ImageIO.read(new File(pathToImage));
 			this.energyMethod = energyMethod;
-
-			System.out.printf("-> energy: %d, simple: %b, interpolate: %b\n", this.energyMethod, isSimple, isInterp);
 		}
 
 		public int getWidth() {
@@ -67,10 +41,8 @@ public class SeamCarving {
 			initializeColorMap();
 			// basically want to calculate the gradient/energy and entropy
 			if (this.energyMethod == 1) {
-				// calculatePmnMap();
-				// calculateEntropyMap();
-				calculatePmnMapNAIVE();
-				calculateEntropyMapNAIVE();
+				calculatePmnMap();
+				calculateEntropyMap();
 			}
 			calculateGradientMap();
 			calculateEnergyMap();
@@ -126,15 +98,15 @@ public class SeamCarving {
 				this.image = resizeImage(getWidth() - 1, getHeight());
 				processImage();
 			}
-			
-			// needs to adjust seam location bases on 
+
+			// needs to adjust seam location bases on
 			// how many are "bigger" that it
-			for (int i=0;i<removedSeams.length;i++) {
-				// over all indices 
-				for (int sidx=0; sidx < removedSeams[0].length; sidx++) {
+			for (int i = 0; i < removedSeams.length; i++) {
+				// over all indices
+				for (int sidx = 0; sidx < removedSeams[0].length; sidx++) {
 					seamsToAdd[i][sidx] = removedSeams[i][sidx];
 					// over all other seams
-					for (int i2=0; i2< i; i2++) {
+					for (int i2 = 0; i2 < i; i2++) {
 						if (removedSeams[i][sidx] > removedSeams[i2][sidx]) {
 							seamsToAdd[i][sidx] += 1;
 						}
@@ -168,13 +140,10 @@ public class SeamCarving {
 		}
 
 		public void saveAnalysis(String outputFolder) throws IOException {
-			// TODO Auto-generated method stub
-			processImage();
+			processImage(); // just in case
 			saveImageFromDoubleArray(gradientMap, outputFolder + "sm_grad_map.jpg", BufferedImage.TYPE_INT_RGB);
 			saveImageFromDoubleArray(energyMap, outputFolder + "sm_energy_map.jpg", BufferedImage.TYPE_INT_RGB);
 			if (this.energyMethod == 1) {
-				printDouble2DArrayToFile(gradientMap, outputFolder + "sm_grad_map.txt");
-				printDouble2DArrayToFile(entropyMap, outputFolder + "sm_entropy_map.txt");
 				saveImageFromDoubleArray(pmnMap, outputFolder + "sm_pmn_map.jpg", BufferedImage.TYPE_BYTE_GRAY);
 				saveImageFromDoubleArray(entropyMap, outputFolder + "sm_entropy_map.jpg", BufferedImage.TYPE_BYTE_GRAY);
 			}
@@ -184,13 +153,13 @@ public class SeamCarving {
 			int i = 0;
 			try {
 				for (i = 0; i < seam.length; i++) {
-					if (isTranspose) this.imageCopy.setRGB(i, seam[i], Color.RED.getRGB());
-					else this.imageCopy.setRGB(seam[i], i, Color.RED.getRGB());
+					if (isTranspose)
+						this.imageCopy.setRGB(i, seam[i], Color.RED.getRGB());
+					else
+						this.imageCopy.setRGB(seam[i], i, Color.RED.getRGB());
 				}
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
 				System.out.printf("ERROR: x=%d y=%d", seam[i], i);
-				e.printStackTrace();
 			}
 		}
 
@@ -230,7 +199,7 @@ public class SeamCarving {
 			}
 		}
 
-		private void calculateEntropyMapNAIVE() {
+		private void calculateEntropyMap() {
 			this.entropyMap = new double[getHeight()][getWidth()];
 			int x_start, x_finish, y_start, y_finish;
 			for (int l = 0; l < getHeight(); l++) {
@@ -249,57 +218,7 @@ public class SeamCarving {
 			}
 		}
 
-		private void calculateEntropyMap() {
-			this.entropyMap = new double[getHeight()][getWidth()];
-			Queue<Double> colKeep = new ArrayDeque<Double>(5);
-
-			int x_start, x_finish, y_start, y_finish;
-			double entropy, colEntropy;
-
-			for (int j = 1; j < getHeight(); j++) {
-				// calculate for the first pixel in the row and insert into queue
-				entropy = 0;
-
-				x_start = 0;
-				x_finish = 4;
-				y_start = Math.max(j - 4, 0);
-				y_finish = Math.min(j + 4, getHeight() - 1);
-				for (int k = x_start; k <= x_finish; k++) {
-					colEntropy = 0;
-					for (int l = y_start; l <= y_finish; l++) {
-						colEntropy -= pmnMap[k][l] * Math.log(pmnMap[k][l]);
-					}
-
-					colKeep.add(colEntropy);
-					entropy += colEntropy;
-				}
-				this.entropyMap[j][0] = entropy;
-
-				for (int i = 1; i < getWidth(); i++) {
-					// current = last_pixel + right row - row
-					colEntropy = 0;
-					if (i < getWidth() - 5) {
-						// right_row = ...
-						x_finish = Math.min(i + 4, getWidth() - 1);
-						y_start = Math.max(j - 4, 0);
-						y_finish = Math.min(j + 4, getHeight() - 1);
-						for (int l = y_start; l <= y_finish; l++) {
-							colEntropy -= pmnMap[l][x_finish] * Math.log(pmnMap[l][x_finish]);
-						}
-
-						// queue.enqueue(right_row)
-						colKeep.add(colEntropy);
-					}
-
-					// current = last_pixel + right_row - queue.dequeue()
-					this.entropyMap[j][i] = this.entropyMap[j][i - 1] - colEntropy;
-					if (i > 4)
-						this.entropyMap[j][i] += colKeep.poll();
-				}
-			}
-		}
-
-		private void calculatePmnMapNAIVE() {
+		private void calculatePmnMap() {
 			this.pmnMap = new double[getHeight()][getWidth()];
 			int x_start, x_finish, y_start, y_finish;
 			for (int l = 0; l < getHeight(); l++) {
@@ -315,59 +234,6 @@ public class SeamCarving {
 						}
 					}
 					this.pmnMap[l][k] = getPixelGrayscale(l, k) / this.pmnMap[l][k] + noise;
-				}
-			}
-		}
-
-		private void calculatePmnMap() {
-			this.pmnMap = new double[getHeight()][getWidth()];
-			Queue<Double> colKeep = new ArrayDeque<Double>(10);
-
-			int x_start, x_finish, y_start, y_finish;
-			double colDenominator;
-			int i, j, k, l;
-			for (j = 0; j < getHeight(); j++) {
-				// calculate for the first pixel in the row and insert into queue
-				this.pmnMap[j][0] = 0;
-				x_start = 0;
-				x_finish = Math.min(4, getWidth() - 1);
-				y_start = Math.max(j - 4, 0);
-				y_finish = Math.min(j + 4, getHeight() - 1);
-				for (k = x_start; k <= x_finish; k++) {
-					colDenominator = 0;
-					for (l = y_start; l <= y_finish; l++) {
-						colDenominator += getPixelGrayscale(l, k);
-					}
-					colKeep.add(colDenominator);
-					this.pmnMap[j][0] += colDenominator;
-				}
-
-				for (i = 1; i < getWidth(); i++) {
-					colDenominator = 0;
-					// right_row = ...
-					y_start = Math.max(j - 4, 0);
-					y_finish = Math.min(j + 4, getHeight() - 1);
-					for (l = y_start; l <= y_finish; l++) {
-						colDenominator += getPixelGrayscale(l, Math.min(i + 4, getWidth() - 1));
-						// System.out.printf("(%d, %d) - %d: %.5f",j,i,l, getPixelGrayscale(l,
-						// x_finish));
-						// System.out.println();
-					}
-					// queue.enqueue(right_row)
-					colKeep.add(colDenominator);
-					// System.out.printf("(%d, %d): %.5f",j,i, colDenominator);
-					// System.out.println();
-
-					// current = last_pixel + right_row - queue.dequeue()
-					this.pmnMap[j][i] = this.pmnMap[j][i - 1] + colDenominator;
-					if (i > 4) {
-						this.pmnMap[j][i] = this.pmnMap[j][i] - colKeep.poll();
-					}
-				}
-			}
-			for (j = 0; j < getHeight(); j++) {
-				for (i = 0; i < getWidth(); i++) {
-					this.pmnMap[j][i] = getPixelGrayscale(j, i) / this.pmnMap[j][i] + noise;
 				}
 			}
 		}
@@ -597,7 +463,6 @@ public class SeamCarving {
 	public static void main(String[] args) {
 		String inputFileName;
 		String outputFileName;
-		String outputFolder;
 		int outputWidth;
 		int outputHeight;
 		int energyType;
@@ -605,38 +470,34 @@ public class SeamCarving {
 		int alterRows;
 
 		try {
-			// TODO: remove timing for debug
-			long startTime = System.nanoTime();
 
 			inputFileName = args[0];
 			outputFileName = args[4];
 			outputWidth = Integer.valueOf(args[1]);
 			outputHeight = Integer.valueOf(args[2]);
 			energyType = Integer.valueOf(args[3]);
+			
+			// not mandatory
 			if (args.length > 5)
 				isSimple = Boolean.valueOf(args[5]);
 			if (args.length > 6)
 				isInterp = Boolean.valueOf(args[6]);
-			outputFolder = args[4].substring(0, args[4].lastIndexOf("/") + 1);
 
-			System.out.printf("\n%s:\n----\n", inputFileName);
+			System.out.printf("Working on image '%s'\n", inputFileName);
 
 			ImageWrapper imgWrap = new ImageWrapper(inputFileName, energyType);
-			if (DEBUG) imgWrap.saveAnalysis(outputFolder);
-
-			System.out.printf("Size (w,h): old-(%d, %d), new-(%d, %d)\n", imgWrap.getWidth(), imgWrap.getHeight(),
-					outputWidth, outputHeight);
+			
+			// uncomment if want to print the analysis details
+			// imgWrap.saveAnalysis(args[4].substring(0, args[4].lastIndexOf("/") + 1));
 
 			alterCols = imgWrap.getWidth() - outputWidth;
 			alterRows = imgWrap.getHeight() - outputHeight;
 
 			if (alterCols != 0) {
 				if (alterCols > 0) {
-					System.out.printf("Removing %d vertical seams\n", Math.abs(alterCols));
 					// Remove K vertical seams
 					imgWrap.removeKVerticalSeams(Math.abs(alterCols));
 				} else {
-					System.out.printf("Adding %d vertical seams\n", Math.abs(alterCols));
 					// Add K vertical seams
 					imgWrap.addKVerticalSeams(Math.abs(alterCols));
 				}
@@ -645,11 +506,9 @@ public class SeamCarving {
 				// transpose for horizontal
 				imgWrap.transposeImage();
 				if (alterRows > 0) {
-					System.out.printf("Removing %d horizontal seams\n", Math.abs(alterRows));
 					// Remove K horizontal seams
 					imgWrap.removeKVerticalSeams(Math.abs(alterRows));
 				} else {
-					System.out.printf("Adding %d horizontal seams\n", Math.abs(alterRows));
 					// Add K horizontal seams
 					imgWrap.addKVerticalSeams(Math.abs(alterRows));
 				}
@@ -659,28 +518,19 @@ public class SeamCarving {
 
 			// Save the result
 			ImageIO.write(imgWrap.image, "jpg", new File(outputFileName));
-			
-			if (DEBUG)  {
-				ImageIO.write(imgWrap.imageCopy, "jpg", new File(outputFolder + "sm_marked.jpg"));
-			}
 
-			// TODO: remove timing for debug
-			long endTime = System.nanoTime();
-			long totalTime = endTime - startTime;
+			// uncomment if want to print the seam markings
+			// ImageIO.write(imgWrap.imageCopy, "jpg", new File(args[4].substring(0, args[4].lastIndexOf("/") + 1) + "sm_marked.jpg"));
 
-			System.out.printf("DONE! Took: %.4f (seconds)\n", totalTime * Math.pow(10, -9));
+			System.out.printf("Finiseh.\n");
 		} catch (IOException e) {
 			System.out.println("Could not open image file.");
 		} catch (NumberFormatException e) {
 			System.out.println("Invalid arguments.");
 		} catch (ArrayIndexOutOfBoundsException e) {
 			System.out.println("Not enough arguments.");
-			e.printStackTrace();
 		} catch (Exception e) {
 			System.out.println("Unknown exception.");
-			e.printStackTrace();
-		} finally {
-			System.out.println();
 		}
 	}
 }
