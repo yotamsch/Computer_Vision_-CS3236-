@@ -1,0 +1,3 @@
+Created stubs for
+* constructRay - need to calculate the vector from camera to pixel
+* rayCast - get the color of the pixel
