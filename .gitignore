@@ -1,3 +1,7 @@
+# Eclipse
+.recommenders
+.metadata
+
 # Visual Studio Code related
 .vscode
 
