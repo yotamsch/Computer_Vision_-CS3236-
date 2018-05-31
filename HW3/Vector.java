@@ -1,12 +1,8 @@
 
-
-import java.util.Arrays;
-
-
 public class Vector {
-	private double x;
-	private double y;
-	private double z;
+	protected double x;
+	protected double y;
+	protected double z;
 
 	// Constructors
 	public Vector(double x, double y, double z) {
@@ -14,11 +10,13 @@ public class Vector {
 		this.y = y;
 		this.z = z;
 	}
+
 	public Vector(String x, String y, String z) {
 		this(Double.parseDouble(x), Double.parseDouble(y), Double.parseDouble(z));
 	}
+
 	public Vector(Vector other) {
-		this(other.x,other.y,other.z);
+		this(other.x, other.y, other.z);
 	}
 
 	// Add
@@ -27,6 +25,7 @@ public class Vector {
 		this.y += other.y;
 		this.z += other.z;
 	}
+
 	public void add(double num) {
 		this.x += num;
 		this.y += num;
@@ -39,6 +38,7 @@ public class Vector {
 		this.y -= other.y;
 		this.z -= other.z;
 	}
+
 	public void sub(double num) {
 		this.x -= num;
 		this.y -= num;
@@ -51,6 +51,7 @@ public class Vector {
 		this.y *= scalar;
 		this.z *= scalar;
 	}
+
 	public void mul(Vector other) {
 		this.x *= other.x;
 		this.y *= other.y;
@@ -64,24 +65,34 @@ public class Vector {
 
 	// Normalize
 	public void normalize() {
-		this.mul(1.0/this.norm());
+		this.mul(1.0 / this.norm());
 	}
 
 	// Distance
-	public double distance(Vector other) {
-		return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2) + Math.pow(this.z - other.z, 2));
+	public double distance(Vector from) {
+		return Math.sqrt(Math.pow(this.x - from.x, 2) + Math.pow(this.y - from.y, 2) + Math.pow(this.z - from.z, 2));
 	}
 
 	// Trimming
+	public void trim() {
+		trim(0, 1);
+	}
+
 	public void trim(double min, double max) {
 		// lower bound
-		if (this.x < min) this.x = min;
-		if (this.y < min) this.y = min;
-		if (this.z < min) this.z = min;
+		if (this.x < min)
+			this.x = min;
+		if (this.y < min)
+			this.y = min;
+		if (this.z < min)
+			this.z = min;
 		// upper bound
-		if (this.x > max) this.x = max;
-		if (this.y > max) this.y = max;
-		if (this.z > max) this.z = max;
+		if (this.x > max)
+			this.x = max;
+		if (this.y > max)
+			this.y = max;
+		if (this.z > max)
+			this.z = max;
 	}
 
 	// Other
@@ -108,27 +119,6 @@ public class Vector {
 		Vector result = new Vector(base);
 		result.normalize();
 		result.mul(dotProduct(result, other));
-		return result;
-	}
-}
-
-public class Color extends Vector {
-
-	public Color(double r, double g, double b) {
-		super(r, g, b);
-	}
-	public Color(String r, String g, String b) {
-		super(r, g, b);
-	}
-	public Color(Color other) {
-		super(other);
-	}
-
-	public byte[] getRGB() {
-		byte[] result = new byte[3];
-		result[0] = (byte)(Math.round(this.x * 255));
-		result[1] = (byte)(Math.round(this.y * 255));
-		result[2] = (byte)(Math.round(this.z * 255));
 		return result;
 	}
 }
