@@ -7,7 +7,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import javax.imageio.ImageIO;
 
@@ -25,20 +27,19 @@ import utility.Vector;
  * Main class for ray tracing exercise.
  */
 public class RayTracer {
-	int imageWidth; // output image width
-	int imageHeight; // output image height
+	// Random generator
+	static Random rand = new Random();
 
-	// Scene parameters
-	Color backgroundColor; // the color when no shape detected
-	double rootShadowRays; // the number of shadow rays
-	int recursions; // the maximum recursion level
-	int superSampling; // the super sampling level
+	// Ray trace parameters
+	World scene = new World();
+	Color backgroundColor;
+	int shadowRaysNum;
+	int recursionsMaxLevel;
+	int superSamplingLevel;
 
-	// Scene objects
-	Camera camera; // the camera
-	List<Light> lights; // the lights
-	List<Shape> shapes; // the shapes
-	List<Material> materials; // the materials
+	// Output image parameters
+	int imageWidth;
+	int imageHeight;
 
 	/**
 	 * Custom exception for Ray Tracing errors.
@@ -61,6 +62,19 @@ public class RayTracer {
 			this.direction = direction;
 
 			this.direction.normalize();
+		}
+	}
+	
+	public static class World {
+		Camera camera; // the camera
+		List<Light> lights; // the lights
+		List<Shape> shapes; // the shapes
+		List<Material> materials; // the materials
+		
+		public World() {
+			this.lights = new ArrayList<Light>();
+			this.shapes = new ArrayList<Shape>();
+			this.materials = new ArrayList<Material>();
 		}
 	}
 
@@ -131,7 +145,7 @@ public class RayTracer {
 				// TODO: should we verify that the input is correct?
 				if (code.equals("cam")) {
 					// Camera
-					this.camera = new Camera(
+					this.scene.camera = new Camera(
 							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
 									Double.parseDouble(params[2])),
 							new Vector(Double.parseDouble(params[3]), Double.parseDouble(params[4]),
@@ -144,38 +158,38 @@ public class RayTracer {
 					// Scene parameters
 					this.backgroundColor = new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]),
 							Float.parseFloat(params[2]));
-					this.rootShadowRays = Integer.parseInt(params[3]);
-					this.recursions = Integer.parseInt(params[4]);
-					this.superSampling = Integer.parseInt(params[5]);
+					this.shadowRaysNum = Integer.parseInt(params[3]);
+					this.recursionsMaxLevel = Integer.parseInt(params[4]);
+					this.superSamplingLevel = Integer.parseInt(params[5]);
 					System.out.println(String.format("Parsed general settings (line %d)", lineNum));
 				} else if (code.equals("mtl")) {
 					// Material
-					this.materials.add(new Material(
+					this.scene.materials.add(new Material(
 							new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]),
 									Float.parseFloat(params[2])),
 							new Color(Float.parseFloat(params[3]), Float.parseFloat(params[4]),
 									Float.parseFloat(params[5])),
 							new Color(Float.parseFloat(params[6]), Float.parseFloat(params[7]),
 									Float.parseFloat(params[8])),
-							Double.parseDouble(params[9]), Double.parseDouble(params[10])));
+							Float.parseFloat(params[9]), Float.parseFloat(params[10])));
 					System.out.println(String.format("Parsed material (line %d)", lineNum));
 				} else if (code.equals("sph")) {
 					// Sphere
-					this.shapes.add(new Sphere(
+					this.scene.shapes.add(new Sphere(
 							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
 									Double.parseDouble(params[2])),
 							Double.parseDouble(params[3]), Integer.parseInt(params[4])));
 					System.out.println(String.format("Parsed sphere (line %d)", lineNum));
 				} else if (code.equals("pln")) {
 					// Plane
-					this.shapes.add(new Plane(
+					this.scene.shapes.add(new Plane(
 							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
 									Double.parseDouble(params[2])),
 							Double.parseDouble(params[3]), Integer.parseInt(params[4])));
 					System.out.println(String.format("Parsed plane (line %d)", lineNum));
 				} else if (code.equals("trg")) {
 					// Triangle
-					this.shapes.add(new Triangle(
+					this.scene.shapes.add(new Triangle(
 							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
 									Double.parseDouble(params[2])),
 							new Vector(Double.parseDouble(params[3]), Double.parseDouble(params[4]),
@@ -186,13 +200,12 @@ public class RayTracer {
 					System.out.println(String.format("Parsed triangle (line %d)", lineNum));
 				} else if (code.equals("lgt")) {
 					// Light
-					this.lights.add(new Light(
+					this.scene.lights.add(new Light(
 							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
 									Double.parseDouble(params[2])),
 							new Color(Float.parseFloat(params[3]), Float.parseFloat(params[4]),
 									Float.parseFloat(params[5])),
-							Double.parseDouble(params[6]), Double.parseDouble(params[7]),
-							Double.parseDouble(params[8])));
+							Float.parseFloat(params[6]), Float.parseFloat(params[7]), Double.parseDouble(params[8])));
 					System.out.println(String.format("Parsed light (line %d)", lineNum));
 				} else {
 					System.out.println(String.format("ERROR: Did not recognize object: %s (line %d)", code, lineNum));
@@ -201,9 +214,9 @@ public class RayTracer {
 		}
 
 		// TODO: check that everything is defined (camera, materials, etc...)
-		
+
 		System.out.println("Finished parsing scene file " + sceneFileName);
-		
+
 		r.close();
 	}
 
@@ -219,26 +232,34 @@ public class RayTracer {
 		// Base looping over the pixels
 		for (int x = 0; x < this.imageWidth; x++) {
 			for (int y = 0; y < this.imageHeight; y++) {
+				// Initialize to a black color
+				Color clr = new Color(0.0F, 0.0F, 0.0F);
+
 				// Support for anti-aliasing
-				for (int i = 0; i < this.superSampling; i++) {
-					for (int j = 0; j < this.superSampling; j++) {
+				for (int i = 0; i < this.superSamplingLevel; i++) {
+					for (int j = 0; j < this.superSamplingLevel; j++) {
 						// Determine the pixel-position to trace
-						double trace_x = x - this.imageWidth / 2 + (j + 0.5) / this.superSampling;
-						double trace_y = y - this.imageHeight / 2 + (i + 0.5) / this.superSampling;
+						float randJitter = rand.nextFloat();
+						randJitter = randJitter == 1.0F || randJitter == 0.0F ? 0.5F : randJitter;
+						double trace_x = x - this.imageWidth / 2 + (j + randJitter) / this.superSamplingLevel;
+						double trace_y = y - this.imageHeight / 2 + (i + randJitter) / this.superSamplingLevel;
 
 						// The constructed ray (origin, direction)
-						Ray ray = this.camera.getRay(trace_x, trace_y);
+						Ray ray = this.scene.camera.getRay(trace_x, trace_y);
 
-						// TODO: Put your ray tracing code here!
-						//
-						// Write pixel color values in RGB format to rgbData:
-						// Pixel [x, y] red component is in rgbData[(y * this.imageWidth + x) * 3]
-						// green component is in rgbData[(y * this.imageWidth + x) * 3 + 1]
-						// blue component is in rgbData[(y * this.imageWidth + x) * 3 + 2]
-						//
-						// Each of the red, green and blue components should be a byte, i.e. 0-255
+						Color tempClr = this.traceColor(ray, 0);
+
+						clr.add(tempClr);
 					}
 				}
+
+				clr.div((float) Math.pow(this.superSamplingLevel, 2));
+				
+				// Set the color of the output image
+				byte[] bClr = clr.getRGB();
+				rgbData[(y * this.imageWidth + x) * 3] =bClr[0];
+				rgbData[(y * this.imageWidth + x) * 3 + 1] = bClr[1];
+				rgbData[(y * this.imageWidth + x) * 3 + 2] = bClr[2];
 			}
 		}
 
@@ -257,8 +278,8 @@ public class RayTracer {
 
 	}
 
-	//////////////////////// FUNCTIONS TO SAVE IMAGES IN PNG FORMAT
-	//////////////////////// //////////////////////////////////////////
+	////////////// FUNCTIONS TO SAVE IMAGES IN PNG FORMAT /////////////
+	///////////////////////////////////////////////////////////////////
 
 	/*
 	 * Saves RGB data as an image in png format to the specified location.
@@ -276,8 +297,8 @@ public class RayTracer {
 	}
 
 	/*
-	 * Producing a BufferedImage that can be saved as 
-	 * PNG from a byte array of RGB values.
+	 * Producing a BufferedImage that can be saved as PNG from a byte array of RGB
+	 * values.
 	 */
 	public static BufferedImage bytes2RGB(int width, byte[] buffer) {
 		int height = buffer.length / width / 3;
@@ -291,4 +312,51 @@ public class RayTracer {
 		return result;
 	}
 	
+	////////////////////////// RAY TRACING /////////////////////////
+	////////////////////////////////////////////////////////////////
+	
+	/**
+	 * This function uses recursion to recursively calculate 
+	 * the accumulated color of a position viewed from Ray.
+	 * @param ray - The ray to search for
+	 * @param currRecursionLevel - The current recursion level (starts from 0)
+	 * @return The calculated color
+	 */
+	public Color traceColor(Ray ray, int currRecursionLevel) {
+		if (currRecursionLevel >= this.recursionsMaxLevel) {
+			return new Color(0.0F, 0.0F, 0.0F);
+		}
+		
+		Color outColor = new Color(this.backgroundColor);
+		
+		Shape firstIntersected = getFirstIntersection(ray);
+		
+		if (firstIntersected != null) {
+			
+			// TODO: implement the ray tracing itself
+			
+		}
+		return outColor;
+	}
+	
+	/**
+	 * The function returns the first object intersected with the ray.
+	 * In other words, the closest object to the origin of the ray.
+	 * @param ray - The ray to check for 
+	 * @return The shape found, null if nothing intersected
+	 */
+	public Shape getFirstIntersection(Ray ray) {
+		double maxHitValue = Double.MAX_VALUE;
+		Shape result = null;
+		
+		for (Shape shape : this.scene.shapes) {
+			double tempHitValue = shape.hit(ray);
+			if (tempHitValue != 0 &&  tempHitValue > maxHitValue) {
+				result = shape;
+				maxHitValue = tempHitValue;
+			}
+		}
+		return result;
+	}
+
 }

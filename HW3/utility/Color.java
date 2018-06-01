@@ -19,6 +19,12 @@ public class Color {
 		this.b += other.b;
 	}
 	
+	public void mul(Color other) {
+		this.r *= other.r;
+		this.g *= other.g;
+		this.b *= other.b;
+	}
+	
 	public void mul(float scalar) {
 		this.r *= scalar;
 		this.g *= scalar;

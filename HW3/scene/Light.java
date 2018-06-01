@@ -5,9 +5,10 @@ import utility.Vector;
 public class Light {
 	Vector position;
 	Color color;
-	double specularIntensity, shadowIntensity, radius;
+	float specularIntensity, shadowIntensity;
+	double radius;
 
-	public Light(Vector position, Color color, double specularIntensity, double shadowIntensity, double radius) {
+	public Light(Vector position, Color color, float specularIntensity, float shadowIntensity, double radius) {
 		this.position = position;
 		this.color = color;
 		this.specularIntensity = specularIntensity;
