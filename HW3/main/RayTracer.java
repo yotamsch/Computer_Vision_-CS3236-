@@ -1,3 +1,4 @@
+package main;
 
 import java.awt.Transparency;
 import java.awt.color.*;
@@ -9,6 +10,16 @@ import java.io.IOException;
 import java.util.List;
 
 import javax.imageio.ImageIO;
+
+import geometry.Plane;
+import geometry.Shape;
+import geometry.Sphere;
+import geometry.Triangle;
+import scene.Camera;
+import scene.Light;
+import scene.Material;
+import utility.Color;
+import utility.Vector;
 
 /**
  * Main class for ray tracing exercise.
@@ -22,11 +33,36 @@ public class RayTracer {
 	double rootShadowRays; // the number of shadow rays
 	int recursions; // the maximum recursion level
 	int superSampling; // the super sampling level
-	
+
+	// Scene objects
 	Camera camera; // the camera
 	List<Light> lights; // the lights
 	List<Shape> shapes; // the shapes
 	List<Material> materials; // the materials
+
+	/**
+	 * Custom exception for Ray Tracing errors.
+	 */
+	@SuppressWarnings({ "serial" })
+	public static class RayTracerException extends Exception {
+		public RayTracerException(String msg) {
+			super(msg);
+		}
+	}
+
+	/**
+	 * The ray class. Defined by on origin and a direction.
+	 */
+	public static class Ray {
+		Vector origin, direction;
+
+		public Ray(Vector origin, Vector direction) {
+			this.origin = origin;
+			this.direction = direction;
+
+			this.direction.normalize();
+		}
+	}
 
 	/**
 	 * Runs the ray tracer. Takes scene file, output image file and image size as
@@ -60,6 +96,8 @@ public class RayTracer {
 			// Render scene:
 			tracer.renderScene(outputFileName);
 
+		} catch (RayTracerException e) {
+			System.out.println(e.getMessage());
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
 		} catch (Exception e) {
@@ -69,8 +107,7 @@ public class RayTracer {
 	}
 
 	/**
-	 * Parses the scene file and creates the scene. Change this function so it
-	 * generates the required objects.
+	 * Parses the scene file and creates the scene.
 	 */
 	public void parseScene(String sceneFileName) throws IOException {
 		FileReader fr = new FileReader(sceneFileName);
@@ -94,34 +131,68 @@ public class RayTracer {
 				// TODO: should we verify that the input is correct?
 				if (code.equals("cam")) {
 					// Camera
-					this.camera = new Camera(params);
+					this.camera = new Camera(
+							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
+									Double.parseDouble(params[2])),
+							new Vector(Double.parseDouble(params[3]), Double.parseDouble(params[4]),
+									Double.parseDouble(params[5])),
+							new Vector(Double.parseDouble(params[6]), Double.parseDouble(params[7]),
+									Double.parseDouble(params[8])),
+							Double.parseDouble(params[9]), Double.parseDouble(params[10]));
 					System.out.println(String.format("Parsed camera parameters (line %d)", lineNum));
 				} else if (code.equals("set")) {
 					// Scene parameters
-					this.backgroundColor = new Color(params[0], params[1], params[2]);
+					this.backgroundColor = new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]),
+							Float.parseFloat(params[2]));
 					this.rootShadowRays = Integer.parseInt(params[3]);
 					this.recursions = Integer.parseInt(params[4]);
 					this.superSampling = Integer.parseInt(params[5]);
 					System.out.println(String.format("Parsed general settings (line %d)", lineNum));
 				} else if (code.equals("mtl")) {
 					// Material
-					this.materials.add(new Material(params));
+					this.materials.add(new Material(
+							new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]),
+									Float.parseFloat(params[2])),
+							new Color(Float.parseFloat(params[3]), Float.parseFloat(params[4]),
+									Float.parseFloat(params[5])),
+							new Color(Float.parseFloat(params[6]), Float.parseFloat(params[7]),
+									Float.parseFloat(params[8])),
+							Double.parseDouble(params[9]), Double.parseDouble(params[10])));
 					System.out.println(String.format("Parsed material (line %d)", lineNum));
 				} else if (code.equals("sph")) {
 					// Sphere
-					this.shapes.add(new Sphere(params));
+					this.shapes.add(new Sphere(
+							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
+									Double.parseDouble(params[2])),
+							Double.parseDouble(params[3]), Integer.parseInt(params[4])));
 					System.out.println(String.format("Parsed sphere (line %d)", lineNum));
-				} else if (code.equals("trg")) {
-					// Triangle
-					this.shapes.add(new Triangle(params));
-					System.out.println(String.format("Parsed triangle (line %d)", lineNum));
 				} else if (code.equals("pln")) {
 					// Plane
-					this.shapes.add(new Plane(params));
+					this.shapes.add(new Plane(
+							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
+									Double.parseDouble(params[2])),
+							Double.parseDouble(params[3]), Integer.parseInt(params[4])));
 					System.out.println(String.format("Parsed plane (line %d)", lineNum));
+				} else if (code.equals("trg")) {
+					// Triangle
+					this.shapes.add(new Triangle(
+							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
+									Double.parseDouble(params[2])),
+							new Vector(Double.parseDouble(params[3]), Double.parseDouble(params[4]),
+									Double.parseDouble(params[5])),
+							new Vector(Double.parseDouble(params[6]), Double.parseDouble(params[7]),
+									Double.parseDouble(params[8])),
+							Integer.parseInt(params[4])));
+					System.out.println(String.format("Parsed triangle (line %d)", lineNum));
 				} else if (code.equals("lgt")) {
 					// Light
-					this.lights.add(new Light(params));
+					this.lights.add(new Light(
+							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
+									Double.parseDouble(params[2])),
+							new Color(Float.parseFloat(params[3]), Float.parseFloat(params[4]),
+									Float.parseFloat(params[5])),
+							Double.parseDouble(params[6]), Double.parseDouble(params[7]),
+							Double.parseDouble(params[8])));
 					System.out.println(String.format("Parsed light (line %d)", lineNum));
 				} else {
 					System.out.println(String.format("ERROR: Did not recognize object: %s (line %d)", code, lineNum));
@@ -129,10 +200,11 @@ public class RayTracer {
 			}
 		}
 
-		// It is recommended that you check here that the scene is valid,
-		// for example camera settings and all necessary materials were defined.
+		// TODO: check that everything is defined (camera, materials, etc...)
+		
 		System.out.println("Finished parsing scene file " + sceneFileName);
-
+		
+		r.close();
 	}
 
 	/**
@@ -144,21 +216,37 @@ public class RayTracer {
 		// Create a byte array to hold the pixel data:
 		byte[] rgbData = new byte[this.imageWidth * this.imageHeight * 3];
 
-		// TODO: implement ray-trace
-		// Put your ray tracing code here!
-		//
-		// Write pixel color values in RGB format to rgbData:
-		// Pixel [x, y] red component is in rgbData[(y * this.imageWidth + x) * 3]
-		// green component is in rgbData[(y * this.imageWidth + x) * 3 + 1]
-		// blue component is in rgbData[(y * this.imageWidth + x) * 3 + 2]
-		//
-		// Each of the red, green and blue components should be a byte, i.e. 0-255
+		// Base looping over the pixels
+		for (int x = 0; x < this.imageWidth; x++) {
+			for (int y = 0; y < this.imageHeight; y++) {
+				// Support for anti-aliasing
+				for (int i = 0; i < this.superSampling; i++) {
+					for (int j = 0; j < this.superSampling; j++) {
+						// Determine the pixel-position to trace
+						double trace_x = x - this.imageWidth / 2 + (j + 0.5) / this.superSampling;
+						double trace_y = y - this.imageHeight / 2 + (i + 0.5) / this.superSampling;
+
+						// The constructed ray (origin, direction)
+						Ray ray = this.camera.getRay(trace_x, trace_y);
+
+						// TODO: Put your ray tracing code here!
+						//
+						// Write pixel color values in RGB format to rgbData:
+						// Pixel [x, y] red component is in rgbData[(y * this.imageWidth + x) * 3]
+						// green component is in rgbData[(y * this.imageWidth + x) * 3 + 1]
+						// blue component is in rgbData[(y * this.imageWidth + x) * 3 + 2]
+						//
+						// Each of the red, green and blue components should be a byte, i.e. 0-255
+					}
+				}
+			}
+		}
 
 		long endTime = System.currentTimeMillis();
 		Long renderTime = endTime - startTime;
 
-		// The time is measured for your own conveniece, rendering speed will not affect
-		// your score
+		// The time is measured for your own convenience.
+		// Rendering speed will not affect your score,
 		// unless it is exceptionally slow (more than a couple of minutes)
 		System.out.println("Finished rendering scene in " + renderTime.toString() + " milliseconds.");
 
@@ -188,8 +276,8 @@ public class RayTracer {
 	}
 
 	/*
-	 * Producing a BufferedImage that can be saved as png from a byte array of RGB
-	 * values.
+	 * Producing a BufferedImage that can be saved as 
+	 * PNG from a byte array of RGB values.
 	 */
 	public static BufferedImage bytes2RGB(int width, byte[] buffer) {
 		int height = buffer.length / width / 3;
@@ -202,21 +290,5 @@ public class RayTracer {
 
 		return result;
 	}
-
-	/////////////////// RAY CASTING ////////////////////////
-	////////////////////////////////////////////////////////
-
-	/*
-	 * params: camera, pixel coordinates return a Vector - ray from camera to pixel
-	 * on screen
-	 */
-	public Vector constructRay(Camera camera, int x, int y) {
-
-	}
-
-	// gets [i][j] and calculates the color of that pixel of the image
-	public byte[] rayCast(int x, int y) {
-		Vector pixelRGB = new Vector(0, 0, 0);
-		Vector ray = constructRay(camera, x, y);
-	}
+	
 }
