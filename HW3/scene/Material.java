@@ -1,9 +1,10 @@
 package scene;
+
 import utility.Color;
 
 public class Material {
-	Color diffuse, specular, reflection;
-	float phong, tranparency;
+	private Color diffuse, specular, reflection;
+	private float phong, tranparency;
 
 	public Material(Color diffuse, Color specular, Color reflection, float phong, float transperacy) {
 		this.diffuse = diffuse;
@@ -13,22 +14,23 @@ public class Material {
 		this.tranparency = transperacy;
 	}
 	
-	public Color getBaseColor(Light light) {
-		Color clr = new Color(diffuse);
-		clr.mul(light.color);
-		return clr;
+	public Color getDiffuse() {
+		return new Color(diffuse).mul(1 - this.tranparency);
 	}
-	
-	public Color getSpecularColor(Light light) {
-		Color clr = new Color(light.color);
-		clr.mul(light.specularIntensity);
-		clr.mul(specular);
-		return clr;
+
+	public Color getSpecular() {
+		return new Color(this.specular).mul(1 - this.tranparency);
 	}
-	
-	public Color getReflectionColor(Color other) {
-		Color clr = new Color(reflection);
-		clr.mul(other);
-		return clr;
+
+	public Color getReflection() {
+		return new Color(this.reflection);
+	}
+
+	public float getPhong() {
+		return phong;
+	}
+
+	public float getTranparency() {
+		return tranparency;
 	}
 }

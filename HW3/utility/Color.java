@@ -1,7 +1,7 @@
 package utility;
 
 public class Color {
-	float r, g, b;
+	private float r, g, b;
 
 	public Color(float r, float g, float b) {
 		this.r = r;
@@ -13,29 +13,32 @@ public class Color {
 		this(other.r, other.g, other.b);
 	}
 	
-	public void add(Color other) {
+	public Color add(Color other) {
 		this.r += other.r;
 		this.g += other.g;
 		this.b += other.b;
+		return this;
 	}
 	
-	public void mul(Color other) {
+	public Color mul(Color other) {
 		this.r *= other.r;
 		this.g *= other.g;
 		this.b *= other.b;
+		return this;
 	}
 	
-	public void mul(float scalar) {
+	public Color mul(float scalar) {
 		this.r *= scalar;
 		this.g *= scalar;
 		this.b *= scalar;
+		return this;
 	}
 	
-	public void div(float scalar) {
-		mul(1.0F / scalar);
+	public Color div(float scalar) {
+		return mul(1.0F / scalar);
 	}
 	
-	public void clamp() {
+	public Color clamp() {
 		float min = 0.0F;
 		float max = 1.0F;
 		
@@ -45,6 +48,8 @@ public class Color {
 		this.g = this.g > max ? max : this.g;
 		this.b = this.b < min ? min : this.b;
 		this.b = this.b > max ? max : this.b;
+		
+		return this;
 	}
 
 	public byte[] getRGB() {
@@ -56,7 +61,10 @@ public class Color {
 	}
 
 	public String toString() {
-		byte[] RGB = getRGB();
-		return String.format("<Color: [r-%d,g-%d,b-%d]>", RGB[0], RGB[1], RGB[2]);
+		char[] RGB = new char[3];
+		RGB[0] = (char) (Math.round(this.r * 255));
+		RGB[1] = (char) (Math.round(this.g * 255));
+		RGB[2] = (char) (Math.round(this.b * 255));
+		return String.format("<Color: [%d,%d,%d]>", (int)RGB[0], (int)RGB[1], (int)RGB[2]);
 	}
 }

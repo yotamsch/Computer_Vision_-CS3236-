@@ -4,18 +4,40 @@ import main.RayTracer.Ray;
 import utility.Vector;
 
 public class Plane extends Shape {
-	Vector normal;
-	double offset;
+	// NOTE:
+	// Every plane has a normal (n) and an offset (f) from the origin "o"
+	// (0,0,0) point which the plane is shifted in.
+	// A point (p) on the plane will agree with:
+	// p = (o + f * n) => p = f * n
+	// Any other point (r) will be on the plane if:
+	// (r - p) * n = 0
+	// Meaning that the vector from point r to point p dotted (dot product)
+	// with the normal, should sum to 0, since it should be
+	// perpendicular to the normal.
+	private Vector normal;
+	private double offset;
 
 	public Plane(Vector normal, double offset, int materialIndex) {
-		this.normal = normal;
+		super(materialIndex);
+		this.normal = normal.normalize();
 		this.offset = offset;
-		this.materialIndex = materialIndex;
 	}
 
 	@Override
 	public double hit(Ray ray) {
-		// TODO Auto-generated method stub
-		return 0;
+		if (Vector.dot(ray.getDirection(), this.normal) == 0) {
+			return 0;
+		}
+
+		// t = (1/d_r*n) * (f - p_r * n)
+		double t = (this.offset - Vector.dot(ray.getOrigin(), this.normal))
+				/ Vector.dot(ray.getDirection(), this.normal);
+
+		return t;
+	}
+
+	@Override
+	public Vector getNormalAt(Vector point) {
+		return this.normal;
 	}
 }
