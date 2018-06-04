@@ -21,14 +21,13 @@ public class Sphere extends Shape {
 	public double hit(Ray ray) {
 		// Based on the method found in:
 		// https://www.cs.unc.edu/~rademach/xroads-RT/RTarticle.html
-		
+
 		Vector EO = new Vector(this.center).sub(ray.getOrigin());
 		double v = Vector.dot(EO, ray.getDirection());
 		double disc = Math.pow(this.radius, 2) - (Vector.dot(EO, EO) - Math.pow(v, 2));
 		if (disc < 0) {
 			return 0;
-		}
-		else {
+		} else {
 			return v - Math.sqrt(disc);
 		}
 	}

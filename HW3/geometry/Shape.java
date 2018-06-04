@@ -5,29 +5,48 @@ import utility.Vector;
 
 public abstract class Shape {
 	private int materialIndex;
-	
+
 	public Shape(int materialIndex) {
 		this.materialIndex = materialIndex;
 	}
-	
+
 	public int getMaterialIndex() {
 		return materialIndex;
 	}
 
 	/**
-	 * The function checks if a ray intersects the shape. 
-	 * Every derived shape implements the function differently.
-	 * @param ray - The ray to check with 
-	 * @return The intersection location, or 0.0 if no intersection 
+	 * The function checks if a ray intersects the shape. Every derived shape
+	 * implements the function differently.
+	 * 
+	 * @param ray
+	 *            - The ray to check with
+	 * @return The intersection location, or 0.0 if no intersection
 	 */
 	public abstract double hit(Ray ray);
 
 	/**
-	 * Gets a normal for the shape surface at a given point.
-	 * Assuming the point in on the surface of the shape.
-	 * @param point - The point for calculation
+	 * Gets a normal for the shape surface at a given point. Assuming the point in
+	 * on the surface of the shape.
+	 * 
+	 * @param point
+	 *            - The point for calculation
 	 * @return A vector perpendicular to the surface at the point
 	 */
 	public abstract Vector getNormalAt(Vector point);
-	
+
+	/**
+	 * Calculates the reflected ray direction at a certain point on the surface.
+	 * 
+	 * @param rayDirection
+	 *            The direction of the ray to be reflected
+	 * @param point
+	 *            The point to reflect the ray for
+	 * @return A vector representing the reflected ray direction
+	 */
+	public Ray getReflectedRay(Vector rayDirection, Vector point) {
+		Vector N = this.getNormalAt(point);
+		Vector V = new Vector(rayDirection).mul(-1).normalize();
+		
+		return new Ray(new Vector(point), new Vector(N).mul(2 * Vector.dot(N, V)).sub(V));
+	}
 }
