@@ -33,6 +33,10 @@ public class Camera {
 		return this.position;
 	}
 	
+	public Vector getUpVector() {
+		return this.up;
+	}
+	
 	public Ray getRayPerspective(double x_pos, double y_pos) {
 		Vector pixelLocation = new Vector(L).add(new Vector(u).mul(x_pos * screenWidth)).add(new Vector(v).mul(y_pos * screenHeight));
 		Vector rayDirection = new Vector(pixelLocation).sub(this.position);

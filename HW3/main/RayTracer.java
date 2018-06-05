@@ -112,8 +112,9 @@ public class RayTracer {
 	 */
 	public static void main(String[] args) {
 
-		//String[] files = { "Test", "Test2", "Pool", "Triangle", "Transparency", "Room1" };
-		String[] files = { "Pool" };
+		// String[] files = { "Test", "Test2", "Pool", "Triangle", "Transparency",
+		// "Room1" };
+		String[] files = { "Test2" };
 		for (String file : files) {
 			try {
 
@@ -381,57 +382,77 @@ public class RayTracer {
 	 */
 	public Color traceColor(Ray ray, int currRecursionLevel) {
 		Color outColor = new Color(this.backgroundColor);
-		
+
 		if (currRecursionLevel >= this.recursionsMaxLevel) {
 			return outColor;
 		}
+		currRecursionLevel += 1;
 
 		Intersection firstIntersected = getFirstIntersection(ray);
 
 		if (firstIntersected != null) {
 			Material objMat = this.scene.materials.get(firstIntersected.shape.getMaterialIndex() - 1);
-			outColor = new Color(this.backgroundColor).mul(objMat.getTranparency());
 			Vector pointNormal = firstIntersected.shape.getNormalAt(firstIntersected.point);
 
-			Ray reflectedRay = firstIntersected.shape.getReflectedRay(ray.getDirection(), firstIntersected.point);
-			
-			// reflection
-			Color reclectedColor = traceColor(reflectedRay, ++currRecursionLevel).mul(objMat.getReflection());
+			// get refraction
+			Ray refractedRay = firstIntersected.shape.getRefractedRay(ray.direction, firstIntersected.point, 1);
+			outColor = traceColor(refractedRay, currRecursionLevel).mul(objMat.getTranparency());
 
 			for (Light light : this.scene.lights) {
-				Color diffuse = new Color(light.getColor()).mul(objMat.getDiffuse());
-				Color speculr = new Color(light.getColor()).mul(objMat.getSpecular()).mul(light.getSpecularIntensity());
-				Color reflection = reclectedColor.mul(light.getColor());
+				Vector lightRayDirection = new Vector(firstIntersected.point).sub(light.getPosition()).normalize();
 
-				Ray lightRay = new Ray(new Vector(light.getPosition()),
-						new Vector(firstIntersected.point).sub(light.getPosition()));
-
-				Intersection lightIntersection = getFirstIntersection(lightRay);
-
-				if (lightIntersection != null) {
-					// diffuse
-					diffuse.mul(Vector.cos(new Vector(lightRay.getDirection()).mul(-1).normalize(), pointNormal));
-
-					// specular
-					speculr.mul((float) Math.pow(Vector.cos(
-							firstIntersected.shape.getReflectedRay(lightRay.getDirection(), firstIntersected.point).getDirection(),
-							new Vector(this.scene.camera.getPosition()).sub(firstIntersected.point).normalize()),
-							objMat.getPhong()));
-
-					// shadows
-					if (Vector.distance(lightIntersection.point, firstIntersected.point) >= epsilon) {
-						diffuse.mul(1 - light.getShadowIntensity());
-						speculr.mul(1 - light.getShadowIntensity());
+				// shadows
+				Vector pW = new Vector(lightRayDirection);
+				Vector pU = Vector.cross(pW, new Vector(0, 1, 0)).normalize();
+				Vector pV = Vector.cross(pW, pU).normalize();
+				int lightHitCount = 0;
+				for (int i = 0; i < this.shadowRaysNum; i++) {
+					for (int j = 0; j < this.shadowRaysNum; j++) {
+						double randJitter = rand.nextDouble();
+						Vector lightPoint = new Vector(light.getPosition())
+								.add(new Vector(pV).mul(((i - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum)
+										* light.getRadius()))
+								.add(new Vector(pU).mul(((j - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum)
+										* light.getRadius()));
+						Ray lightRay = new Ray(lightPoint, new Vector(firstIntersected.point).sub(lightPoint));
+						Intersection lightIntersection = getFirstIntersection(lightRay);
+						if (Vector.distance(lightIntersection.point, firstIntersected.point) < epsilon) {
+							lightHitCount++;
+						}
 					}
-					
 				}
-				outColor
-				.add(diffuse)
-				.add(speculr)
-				.add(reflection)
-				;
+
+				Color lightColor = new Color(light.getColor())
+						.mul((float) (1
+								- (1 - lightHitCount / Math.pow(this.shadowRaysNum, 2)) * light.getShadowIntensity()))
+						.mul(1 - objMat.getTranparency());
+				Color diffuse = new Color(objMat.getDiffuse()).mul(lightColor);
+				Color speculr = new Color(objMat.getSpecular()).mul(lightColor).mul(light.getSpecularIntensity());
+
+				// diffuse
+				diffuse.mul(Vector.cos(new Vector(lightRayDirection).mul(-1), pointNormal)).clamp();
+
+				// specular
+				speculr.mul((float) Math.pow(
+						Vector.cos(
+								firstIntersected.shape.getReflectedRay(lightRayDirection, firstIntersected.point)
+										.getDirection(),
+								new Vector(this.scene.camera.getPosition()).sub(firstIntersected.point).normalize()),
+						objMat.getPhong())).clamp();
+
+				diffuse.clamp();
+				speculr.clamp();
+
+				// adding it all together
+				outColor.add(diffuse).add(speculr);
 			}
+			// reflection
+			Ray reflectedRay = firstIntersected.shape.getReflectedRay(ray.getDirection(), firstIntersected.point);
+			Color reflectedColor = traceColor(reflectedRay, currRecursionLevel).mul(objMat.getReflection()).clamp();
+
+			outColor.add(reflectedColor);
 		}
+
 		return outColor.clamp();
 	}
 

@@ -12,6 +12,18 @@ public class Vector {
 	public Vector(Vector other) {
 		this(other.x, other.y, other.z);
 	}
+	
+	public double getX() {
+		return x;
+	}
+
+	public double getY() {
+		return y;
+	}
+
+	public double getZ() {
+		return z;
+	}
 
 	public Vector add(Vector other) {
 		this.x += other.x; 
@@ -69,7 +81,7 @@ public class Vector {
 	
 	public static float cos(Vector v, Vector u) {
 		float res = (float)dot(v,u);
-		res /= (v.norm() * u.norm());
+		res /= v.norm() * u.norm();
 		return res;
 	}
 	

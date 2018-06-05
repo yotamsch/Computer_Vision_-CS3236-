@@ -38,6 +38,6 @@ public class Plane extends Shape {
 
 	@Override
 	public Vector getNormalAt(Vector point) {
-		return this.normal;
+		return this.normal.normalize();
 	}
 }
