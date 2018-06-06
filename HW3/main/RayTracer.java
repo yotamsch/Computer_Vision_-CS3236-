@@ -410,10 +410,8 @@ public class RayTracer {
 					for (int j = 0; j < this.shadowRaysNum; j++) {
 						double randJitter = rand.nextDouble();
 						Vector lightPoint = new Vector(light.getPosition())
-								.add(new Vector(pV).mul(((i - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum)
-										* light.getRadius()))
-								.add(new Vector(pU).mul(((j - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum)
-										* light.getRadius()));
+								.add(new Vector(pV).mul(light.getRadius() * (i - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum))
+								.add(new Vector(pU).mul((j - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum));
 						Ray lightRay = new Ray(lightPoint, new Vector(firstIntersected.point).sub(lightPoint));
 						Intersection lightIntersection = getFirstIntersection(lightRay);
 						if (Vector.distance(lightIntersection.point, firstIntersected.point) < epsilon) {
