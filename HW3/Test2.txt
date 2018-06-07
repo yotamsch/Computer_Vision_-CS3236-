@@ -29,4 +29,4 @@ sph			0		1		0		1		2
 # Triangles:		p0   		p1   			p2  	 		mat_idx
 
 # Lights:	px	py	pz		r	g	b		spec	shadow		width
-lgt			0	1	3		1	1	1		0.5		0.9			2
+lgt			0	1	5		1	1	1		0.5		0.9			2

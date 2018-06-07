@@ -15,11 +15,11 @@ public class Material {
 	}
 	
 	public Color getDiffuse() {
-		return new Color(diffuse).mul(1 - this.tranparency);
+		return new Color(this.diffuse);
 	}
 
 	public Color getSpecular() {
-		return new Color(this.specular).mul(1 - this.tranparency);
+		return new Color(this.specular);
 	}
 
 	public Color getReflection() {

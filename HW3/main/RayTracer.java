@@ -99,10 +99,12 @@ public class RayTracer {
 	public static class Intersection {
 		public Shape shape;
 		public Vector point;
+		public double tValue;
 
 		public Intersection() {
 			this.shape = null;
 			this.point = null;
+			this.tValue = 0;
 		}
 	}
 
@@ -112,9 +114,8 @@ public class RayTracer {
 	 */
 	public static void main(String[] args) {
 
-		// String[] files = { "Test", "Test2", "Pool", "Triangle", "Transparency",
-		// "Room1" };
-		String[] files = { "Test2" };
+		String[] files = { "Test", "Test2", "Pool", "Triangle", "Transparency", "Room1" };
+		//String[] files = { "Pool" };
 		for (String file : files) {
 			try {
 
@@ -395,34 +396,20 @@ public class RayTracer {
 			Vector pointNormal = firstIntersected.shape.getNormalAt(firstIntersected.point);
 
 			// get refraction
-			Ray refractedRay = firstIntersected.shape.getRefractedRay(ray.direction, firstIntersected.point, 1);
-			outColor = traceColor(refractedRay, currRecursionLevel).mul(objMat.getTranparency());
+			if (objMat.getTranparency() > 0) {
+				Ray refractedRay = firstIntersected.shape.getRefractedRay(ray.direction, firstIntersected.point, 1);
+				outColor = traceColor(refractedRay, currRecursionLevel).mul(objMat.getTranparency());
+			} else {
+				outColor.mul(objMat.getTranparency());
+			}
 
 			for (Light light : this.scene.lights) {
 				Vector lightRayDirection = new Vector(firstIntersected.point).sub(light.getPosition()).normalize();
 
 				// shadows
-				Vector pW = new Vector(lightRayDirection);
-				Vector pU = Vector.cross(pW, new Vector(0, 1, 0)).normalize();
-				Vector pV = Vector.cross(pW, pU).normalize();
-				int lightHitCount = 0;
-				for (int i = 0; i < this.shadowRaysNum; i++) {
-					for (int j = 0; j < this.shadowRaysNum; j++) {
-						double randJitter = rand.nextDouble();
-						Vector lightPoint = new Vector(light.getPosition())
-								.add(new Vector(pV).mul(light.getRadius() * (i - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum))
-								.add(new Vector(pU).mul((j - this.shadowRaysNum / 2 + randJitter) / this.shadowRaysNum));
-						Ray lightRay = new Ray(lightPoint, new Vector(firstIntersected.point).sub(lightPoint));
-						Intersection lightIntersection = getFirstIntersection(lightRay);
-						if (Vector.distance(lightIntersection.point, firstIntersected.point) < epsilon) {
-							lightHitCount++;
-						}
-					}
-				}
+				float lightMissValue = getLightBlockLevel(firstIntersected, light);
 
-				Color lightColor = new Color(light.getColor())
-						.mul((float) (1
-								- (1 - lightHitCount / Math.pow(this.shadowRaysNum, 2)) * light.getShadowIntensity()))
+				Color lightColor = new Color(light.getColor()).mul(1 - light.getShadowIntensity() * lightMissValue)
 						.mul(1 - objMat.getTranparency());
 				Color diffuse = new Color(objMat.getDiffuse()).mul(lightColor);
 				Color speculr = new Color(objMat.getSpecular()).mul(lightColor).mul(light.getSpecularIntensity());
@@ -445,13 +432,56 @@ public class RayTracer {
 				outColor.add(diffuse).add(speculr);
 			}
 			// reflection
-			Ray reflectedRay = firstIntersected.shape.getReflectedRay(ray.getDirection(), firstIntersected.point);
-			Color reflectedColor = traceColor(reflectedRay, currRecursionLevel).mul(objMat.getReflection()).clamp();
-
-			outColor.add(reflectedColor);
+			if (!objMat.getReflection().equals(new Color(0, 0, 0))) {
+				Ray reflectedRay = firstIntersected.shape.getReflectedRay(ray.getDirection(), firstIntersected.point);
+				Color reflectedColor = traceColor(reflectedRay, currRecursionLevel).mul(objMat.getReflection()).clamp();
+				outColor.add(reflectedColor);
+			}
 		}
 
 		return outColor.clamp();
+	}
+
+	private float getLightBlockLevel(Intersection firstIntersected, Light light) {
+		int lightMissCount = 0;
+
+		if (light.getShadowIntensity() == 0) {
+			return lightMissCount;
+		}
+
+		Vector e0 = new Vector(firstIntersected.point).sub(light.getPosition()).normalize();
+		// double a = e0.getX();
+		// double b = e0.getY();
+		// double c = e0.getZ();
+		// Vector e1 = new Vector(c - b, a - c, b - a);
+		// Vector e2 = new Vector(a * (b + c) - b * b - c * c, b * (a + c) - a * a - c *
+		// c, c * (a + b) - a * a - b * b);
+		Vector e1 = Vector.cross(e0, this.scene.camera.getUpVector()).normalize();
+		Vector e2 = Vector.cross(e0, e1).normalize();
+
+		// System.out.printf("e0*e1=%.2f, e0*e2=%.2f, e1*e2=%.2f\n", Vector.dot(e0, e1),
+		// Vector.dot(e0, e2), Vector.dot(e1, e2));
+
+		for (int i = 0; i < this.shadowRaysNum; i++) {
+			for (int j = 0; j < this.shadowRaysNum; j++) {
+				double randJitter = this.shadowRaysNum > 1 ? rand.nextDouble() : 0;
+
+				Vector lightPoint = new Vector(light.getPosition())
+						.add(new Vector(e1).mul(
+								light.getRadius() * (i - this.shadowRaysNum / 2 + randJitter / 2) / this.shadowRaysNum))
+						.add(new Vector(e2).mul(
+								light.getRadius() * (j - this.shadowRaysNum / 2 + randJitter / 2) / this.shadowRaysNum));
+
+				Ray lightRay = new Ray(lightPoint, new Vector(firstIntersected.point).sub(lightPoint));
+				Intersection lightIntersection = getFirstIntersection(lightRay);
+
+				if (Vector.distance(lightIntersection.point, firstIntersected.point) > epsilon) {
+					lightMissCount++;
+				}
+			}
+		}
+
+		return (float) (lightMissCount / Math.pow(this.shadowRaysNum, 2));
 	}
 
 	/**
@@ -463,31 +493,6 @@ public class RayTracer {
 	 * @return The intersection found, null if nothing intersected
 	 */
 	public Intersection getFirstIntersection(Ray ray) {
-		return getIntersection(ray, true);
-	}
-
-	/**
-	 * Gets the first found intersection (not always closest).
-	 * 
-	 * @param ray
-	 *            The ray to check for
-	 * @return The intersection found, null if nothing intersected
-	 */
-	public Intersection getAnyIntersection(Ray ray) {
-		return getIntersection(ray, false);
-	}
-
-	/**
-	 * Gets an intersection if any occurred. Based on the isClosestSearch parameter,
-	 * either searches for closest or stops after the first.
-	 * 
-	 * @param ray
-	 *            The ray to search with
-	 * @param isClosestSearch
-	 *            Should search for closest or first found
-	 * @return The intersection found, null if nothing intersected
-	 */
-	public Intersection getIntersection(Ray ray, boolean isClosestSearch) {
 		double nearestHitValue = Double.MAX_VALUE;
 		Intersection result = new Intersection();
 
@@ -500,9 +505,7 @@ public class RayTracer {
 				nearestHitValue = tempHitValue;
 				result.shape = shape;
 				result.point = new Vector(ray.origin).add(new Vector(ray.direction).mul(nearestHitValue));
-				if (!isClosestSearch) {
-					return result;
-				}
+				result.tValue = nearestHitValue;
 			}
 		}
 		if (result.shape != null)

@@ -45,7 +45,7 @@ public abstract class Shape {
 	 */
 	public Ray getReflectedRay(Vector rayDirection, Vector point) {
 		Vector N = this.getNormalAt(point);
-		Vector V = new Vector(rayDirection).mul(-1).normalize();
+		Vector V = new Vector(rayDirection).normalize().mul(-1);
 
 		return new Ray(new Vector(point), new Vector(N).mul(2 * Vector.dot(N, V)).sub(V));
 	}
