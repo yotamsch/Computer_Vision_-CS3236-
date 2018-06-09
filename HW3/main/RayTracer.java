@@ -13,6 +13,8 @@ import java.util.Random;
 
 import javax.imageio.ImageIO;
 
+import com.sun.corba.se.pept.transport.OutboundConnectionCache;
+
 import geometry.Plane;
 import geometry.Shape;
 import geometry.Sphere;
@@ -20,6 +22,7 @@ import geometry.Triangle;
 import scene.Camera;
 import scene.Light;
 import scene.Material;
+import sun.util.calendar.BaseCalendar;
 import utility.Color;
 import utility.Vector;
 
@@ -54,68 +57,13 @@ public class RayTracer {
 	}
 
 	/**
-	 * The ray class. Defined by on origin (p) and a direction (d). A point (r) on
-	 * the ray with agree with the function: r = p + t * d Where t is a number
-	 * representing the "distance" or "offset" on the ray. Basically, a point is
-	 * some offset from the origin with the direction of the ray.
-	 */
-	public static class Ray {
-		private Vector origin, direction;
-
-		public Ray(Vector origin, Vector direction) {
-			this.origin = origin;
-			this.direction = direction;
-
-			this.direction.normalize();
-		}
-
-		public Vector getOrigin() {
-			return origin;
-		}
-
-		public Vector getDirection() {
-			return direction;
-		}
-
-		@Override
-		public String toString() {
-			return String.format("<Ray: [%s, %s]>", this.origin, this.direction);
-		}
-	}
-
-	public static class World {
-		public Camera camera; // the camera
-		public List<Light> lights; // the lights
-		public List<Shape> shapes; // the shapes
-		public List<Material> materials; // the materials
-
-		public World() {
-			this.lights = new ArrayList<Light>();
-			this.shapes = new ArrayList<Shape>();
-			this.materials = new ArrayList<Material>();
-		}
-	}
-
-	public static class Intersection {
-		public Shape shape;
-		public Vector point;
-		public double tValue;
-
-		public Intersection() {
-			this.shape = null;
-			this.point = null;
-			this.tValue = 0;
-		}
-	}
-
-	/**
 	 * Runs the ray tracer. Takes scene file, output image file and image size as
 	 * input.
 	 */
 	public static void main(String[] args) {
 
-		String[] files = { "Test", "Test2", "Pool", "Triangle", "Transparency", "Room1" };
-		//String[] files = { "Pool" };
+		//String[] files = { "Test", "Test2", "Pool", "Triangle", "Transparency","Room1", "Room10", "Spheres", "Triangle2" };
+		String[] files = { "Test", "Test2", "Transparency"};
 		for (String file : files) {
 			try {
 
@@ -152,10 +100,13 @@ public class RayTracer {
 				tracer.renderScene(outputFileName);
 
 			} catch (RayTracerException e) {
+				e.printStackTrace();
 				System.out.println(e.getMessage());
 			} catch (IOException e) {
+				e.printStackTrace();
 				System.out.println(e.getMessage());
 			} catch (Exception e) {
+				e.printStackTrace();
 				System.out.println(e.getMessage());
 			}
 		}
@@ -187,15 +138,9 @@ public class RayTracer {
 				// TODO: should we verify that the input is correct?
 				if (code.equals("cam")) {
 					// Camera
-					this.scene.camera = new Camera(
-							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
-									Double.parseDouble(params[2])),
-							new Vector(Double.parseDouble(params[3]), Double.parseDouble(params[4]),
-									Double.parseDouble(params[5])),
-							new Vector(Double.parseDouble(params[6]), Double.parseDouble(params[7]),
-									Double.parseDouble(params[8])),
-							Double.parseDouble(params[9]), Double.parseDouble(params[10]),
-							this.imageHeight / this.imageWidth);
+					this.scene.camera = new Camera(params);
+					this.scene.camera.setAspectRatio(this.imageHeight / this.imageWidth);
+					this.scene.camera.setupCamera();
 					System.out.println(String.format("Parsed camera parameters (line %d)", lineNum));
 				} else if (code.equals("set")) {
 					// Scene parameters
@@ -207,48 +152,23 @@ public class RayTracer {
 					System.out.println(String.format("Parsed general settings (line %d)", lineNum));
 				} else if (code.equals("mtl")) {
 					// Material
-					this.scene.materials.add(new Material(
-							new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]),
-									Float.parseFloat(params[2])),
-							new Color(Float.parseFloat(params[3]), Float.parseFloat(params[4]),
-									Float.parseFloat(params[5])),
-							new Color(Float.parseFloat(params[6]), Float.parseFloat(params[7]),
-									Float.parseFloat(params[8])),
-							Float.parseFloat(params[9]), Float.parseFloat(params[10])));
+					this.scene.materials.add(new Material(params));
 					System.out.println(String.format("Parsed material (line %d)", lineNum));
 				} else if (code.equals("sph")) {
 					// Sphere
-					this.scene.shapes.add(new Sphere(
-							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
-									Double.parseDouble(params[2])),
-							Double.parseDouble(params[3]), Integer.parseInt(params[4])));
+					this.scene.shapes.add(new Sphere(params));
 					System.out.println(String.format("Parsed sphere (line %d)", lineNum));
 				} else if (code.equals("pln")) {
 					// Plane
-					this.scene.shapes.add(new Plane(
-							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
-									Double.parseDouble(params[2])),
-							Double.parseDouble(params[3]), Integer.parseInt(params[4])));
+					this.scene.shapes.add(new Plane(params));
 					System.out.println(String.format("Parsed plane (line %d)", lineNum));
 				} else if (code.equals("trg")) {
 					// Triangle
-					this.scene.shapes.add(new Triangle(
-							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
-									Double.parseDouble(params[2])),
-							new Vector(Double.parseDouble(params[3]), Double.parseDouble(params[4]),
-									Double.parseDouble(params[5])),
-							new Vector(Double.parseDouble(params[6]), Double.parseDouble(params[7]),
-									Double.parseDouble(params[8])),
-							Integer.parseInt(params[9])));
+					this.scene.shapes.add(new Triangle(params));
 					System.out.println(String.format("Parsed triangle (line %d)", lineNum));
 				} else if (code.equals("lgt")) {
 					// Light
-					this.scene.lights.add(new Light(
-							new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]),
-									Double.parseDouble(params[2])),
-							new Color(Float.parseFloat(params[3]), Float.parseFloat(params[4]),
-									Float.parseFloat(params[5])),
-							Float.parseFloat(params[6]), Float.parseFloat(params[7]), Double.parseDouble(params[8])));
+					this.scene.lights.add(new Light(params));
 					System.out.println(String.format("Parsed light (line %d)", lineNum));
 				} else {
 					System.out.println(String.format("ERROR: Did not recognize object: %s (line %d)", code, lineNum));
@@ -273,6 +193,8 @@ public class RayTracer {
 		byte[] rgbData = new byte[this.imageWidth * this.imageHeight * 3];
 
 		// Base looping over the pixels
+		System.out.print("Progress:\t|--------------------|\n");
+		System.out.print("\t\t ");
 		for (int y = 0; y < this.imageHeight; y++) {
 			for (int x = 0; x < this.imageWidth; x++) {
 				// Initialize to a black color
@@ -283,29 +205,18 @@ public class RayTracer {
 					for (int j = 0; j < this.superSamplingLevel; j++) {
 						Ray ray;
 						double trace_x, trace_y;
+						float randJitter;
 
 						// Adding random noise for anti-aliasing not including edges
-						float randJitter = rand.nextFloat();
+						randJitter = rand.nextFloat();
 						randJitter = randJitter == 1.0F || randJitter == 0.0F ? 0.5F : randJitter;
 
-						if (isPerspective) {
-							// Perspective Ray
-							trace_x = (x + (j + randJitter) / this.superSamplingLevel) / this.imageWidth;
-							trace_y = (y + (i + randJitter) / this.superSamplingLevel) / this.imageHeight;
-							ray = this.scene.camera.getRayPerspective(trace_x, trace_y);
-						} else {
-							// Orthographic Ray
-							trace_x = (x - this.imageWidth / 2 + (j + randJitter) / this.superSamplingLevel)
-									/ (this.imageWidth / 2);
-							trace_y = (y - this.imageHeight / 2 + (i + randJitter) / this.superSamplingLevel)
-									/ (this.imageHeight / 2);
-							ray = this.scene.camera.getRayOrthographic(trace_x, -1 * trace_y);
-						}
+						trace_x = (x + (j + randJitter) / this.superSamplingLevel) / this.imageWidth;
+						trace_y = (y + (i + randJitter) / this.superSamplingLevel) / this.imageHeight;
+						ray = this.scene.camera.getRayPerspective(trace_x, trace_y);
 
-						Color tempClr = this.traceColor(ray, 0);
-
-						clr.add(tempClr);
-
+						// add the color (average later)
+						clr.add(this.traceColor(ray, 0));
 					}
 				}
 
@@ -317,7 +228,14 @@ public class RayTracer {
 				rgbData[(y * this.imageWidth + x) * 3 + 1] = bClr[1];
 				rgbData[(y * this.imageWidth + x) * 3 + 2] = bClr[2];
 			}
+
+			double precent = 100 * ((double) y / this.imageHeight);
+			if (precent % 5 == 0) {
+				System.out.print("=");
+			}
 		}
+
+		System.out.print("\nDone.\n");
 
 		long endTime = System.currentTimeMillis();
 		Long renderTime = endTime - startTime;
@@ -382,7 +300,7 @@ public class RayTracer {
 	 * @return The calculated color
 	 */
 	public Color traceColor(Ray ray, int currRecursionLevel) {
-		Color outColor = new Color(this.backgroundColor);
+		Color outColor = new Color(0, 0, 0);
 
 		if (currRecursionLevel >= this.recursionsMaxLevel) {
 			return outColor;
@@ -392,96 +310,138 @@ public class RayTracer {
 		Intersection firstIntersected = getFirstIntersection(ray);
 
 		if (firstIntersected != null) {
-			Material objMat = this.scene.materials.get(firstIntersected.shape.getMaterialIndex() - 1);
-			Vector pointNormal = firstIntersected.shape.getNormalAt(firstIntersected.point);
+
+			Material mat = this.scene.materials.get(firstIntersected.shape.getMaterialIndex());
+
+			Color baseColor = new Color(0, 0, 0);
+			Color refracColor = new Color(0, 0, 0);
+			Color reflecColor = new Color(0, 0, 0);
 
 			// get refraction
-			if (objMat.getTranparency() > 0) {
-				Ray refractedRay = firstIntersected.shape.getRefractedRay(ray.direction, firstIntersected.point, 1);
-				outColor = traceColor(refractedRay, currRecursionLevel).mul(objMat.getTranparency());
-			} else {
-				outColor.mul(objMat.getTranparency());
+			if (mat.isRefractive()) {
+				Ray refractedRay = firstIntersected.shape.getRefractedRay(ray.getDirection(), firstIntersected.point,
+						1);
+				refracColor = traceColor(refractedRay, currRecursionLevel);
+			}
+
+			// reflection
+			if (mat.isReflective()) {
+				Ray reflectedRay = firstIntersected.shape.getReflectedRay(ray.getDirection(), firstIntersected.point);
+				reflecColor = traceColor(reflectedRay, currRecursionLevel);
+				reflecColor.mul(mat.getReflection());
 			}
 
 			for (Light light : this.scene.lights) {
-				Vector lightRayDirection = new Vector(firstIntersected.point).sub(light.getPosition()).normalize();
-
-				// shadows
-				float lightMissValue = getLightBlockLevel(firstIntersected, light);
-
-				Color lightColor = new Color(light.getColor()).mul(1 - light.getShadowIntensity() * lightMissValue)
-						.mul(1 - objMat.getTranparency());
-				Color diffuse = new Color(objMat.getDiffuse()).mul(lightColor);
-				Color speculr = new Color(objMat.getSpecular()).mul(lightColor).mul(light.getSpecularIntensity());
-
-				// diffuse
-				diffuse.mul(Vector.cos(new Vector(lightRayDirection).mul(-1), pointNormal)).clamp();
-
-				// specular
-				speculr.mul((float) Math.pow(
-						Vector.cos(
-								firstIntersected.shape.getReflectedRay(lightRayDirection, firstIntersected.point)
-										.getDirection(),
-								new Vector(this.scene.camera.getPosition()).sub(firstIntersected.point).normalize()),
-						objMat.getPhong())).clamp();
-
-				diffuse.clamp();
-				speculr.clamp();
-
-				// adding it all together
-				outColor.add(diffuse).add(speculr);
+				Color currColor = getBaseColor(light, ray, firstIntersected);
+				
+				// soft shadows
+				if (light.getShadowIntensity() != 0 && !currColor.isBlack()) {
+					float lightPass = getLightPassPrecent(firstIntersected, light);
+					currColor.mul(1 - light.getShadowIntensity() + light.getShadowIntensity() * lightPass);
+				}
+				
+				baseColor.add(currColor);
 			}
-			// reflection
-			if (!objMat.getReflection().equals(new Color(0, 0, 0))) {
-				Ray reflectedRay = firstIntersected.shape.getReflectedRay(ray.getDirection(), firstIntersected.point);
-				Color reflectedColor = traceColor(reflectedRay, currRecursionLevel).mul(objMat.getReflection()).clamp();
-				outColor.add(reflectedColor);
-			}
+
+			outColor.add(baseColor.mul(1 - mat.getTranparency()));
+			outColor.add(refracColor.mul(mat.getTranparency()));
+			outColor.add(reflecColor);
+			outColor.clamp();
+
+			return outColor;
+		} else {
+			return outColor.add(this.backgroundColor);
 		}
 
-		return outColor.clamp();
 	}
 
-	private float getLightBlockLevel(Intersection firstIntersected, Light light) {
-		int lightMissCount = 0;
+	private Color getBaseColor(Light light, Ray ray, Intersection firstIntersected) {
+		Material mat = this.scene.materials.get(firstIntersected.shape.getMaterialIndex());
+		Color baseColor = mat.getDiffuse();
+		Color specularColor = mat.getSpecular();
 
-		if (light.getShadowIntensity() == 0) {
-			return lightMissCount;
+		Vector lightDir = new Vector(light.getPosition()).sub(firstIntersected.point).normalize();
+		Vector pointNormal = firstIntersected.shape.getNormalAt(firstIntersected.point);
+
+		if (Vector.dot(ray.getDirection(), pointNormal) > 0) {
+			pointNormal.mul(-1);
 		}
 
-		Vector e0 = new Vector(firstIntersected.point).sub(light.getPosition()).normalize();
-		// double a = e0.getX();
-		// double b = e0.getY();
-		// double c = e0.getZ();
-		// Vector e1 = new Vector(c - b, a - c, b - a);
-		// Vector e2 = new Vector(a * (b + c) - b * b - c * c, b * (a + c) - a * a - c *
-		// c, c * (a + b) - a * a - b * b);
-		Vector e1 = Vector.cross(e0, this.scene.camera.getUpVector()).normalize();
-		Vector e2 = Vector.cross(e0, e1).normalize();
+		// add diffuse color
+		float cosAngle = Vector.cos(lightDir, pointNormal);
+		if (cosAngle <= 0) {
+			baseColor.mul(0);
+			return baseColor;
+		}
+		baseColor.mul(cosAngle);
 
-		// System.out.printf("e0*e1=%.2f, e0*e2=%.2f, e1*e2=%.2f\n", Vector.dot(e0, e1),
-		// Vector.dot(e0, e2), Vector.dot(e1, e2));
+		if (!specularColor.isBlack()) {
+			Vector lightReflect = new Vector(pointNormal).mul(2 * Vector.dot(lightDir, pointNormal)).sub(lightDir);
+
+			// add specular color
+			cosAngle = Vector.cos(ray.getDirection(), lightReflect);
+			if (cosAngle < 0) {
+				cosAngle = (float) Math.pow(cosAngle, mat.getPhong());
+				specularColor.mul(cosAngle * light.getSpecularIntensity());
+				baseColor.add(specularColor);
+			}
+		}
+
+		baseColor.mul(light.getColor());
+
+		return baseColor;
+	}
+
+	private float getLightPassPrecent(Intersection firstIntersected, Light light) {
+
+		Vector up = new Vector(this.scene.camera.getUpDirection());
+		Vector N = new Vector(light.getPosition()).sub(firstIntersected.point);
+		Vector U = Vector.cross(N, up).normalize();
+		Vector V = Vector.cross(N, U).normalize();
+		
+		Vector lightPos = new Vector(light.getPosition());
+		lightPos.sub(new Vector(U).mul(light.getRadius() / 2));
+		lightPos.sub(new Vector(V).mul(light.getRadius() / 2));
+
+		double lightLevel = 0;
 
 		for (int i = 0; i < this.shadowRaysNum; i++) {
 			for (int j = 0; j < this.shadowRaysNum; j++) {
 				double randJitter = this.shadowRaysNum > 1 ? rand.nextDouble() : 0;
 
-				Vector lightPoint = new Vector(light.getPosition())
-						.add(new Vector(e1).mul(
-								light.getRadius() * (i - this.shadowRaysNum / 2 + randJitter / 2) / this.shadowRaysNum))
-						.add(new Vector(e2).mul(
-								light.getRadius() * (j - this.shadowRaysNum / 2 + randJitter / 2) / this.shadowRaysNum));
+				Vector lightPoint = new Vector(lightPos);
+				lightPoint.add(new Vector(V)
+						.mul((i + randJitter) * (light.getRadius() / this.shadowRaysNum)));
+				lightPoint.add(new Vector(U)
+						.mul((j + randJitter) * (light.getRadius() / this.shadowRaysNum)));
+				
+				Vector LightDir = new Vector(firstIntersected.point).sub(lightPoint);
+				double T = LightDir.norm();
 
-				Ray lightRay = new Ray(lightPoint, new Vector(firstIntersected.point).sub(lightPoint));
-				Intersection lightIntersection = getFirstIntersection(lightRay);
-
-				if (Vector.distance(lightIntersection.point, firstIntersected.point) > epsilon) {
-					lightMissCount++;
-				}
+				Ray lightRay = new Ray(new Vector(lightPoint), new Vector(firstIntersected.point).sub(lightPoint));
+				lightLevel += getLightLevel(lightRay, T);
 			}
 		}
 
-		return (float) (lightMissCount / Math.pow(this.shadowRaysNum, 2));
+		return (float) (lightLevel / Math.pow(this.shadowRaysNum, 2));
+	}
+
+	private double getLightLevel(Ray lightRay, double T) {
+		double lightLevel = 1;
+
+		for (Shape s : this.scene.shapes) {
+			double t = s.hit(lightRay);
+
+			if (t > epsilon && t < T - epsilon) {
+				double trans = this.scene.materials.get(s.getMaterialIndex()).getTranparency();
+				// check if the hit object is blocking all light
+				if (trans == 0) {
+					return 0;
+				}
+				lightLevel *= trans;
+			}
+		}
+		return lightLevel;
 	}
 
 	/**
@@ -504,12 +464,13 @@ public class RayTracer {
 			if (tempHitValue >= epsilon && tempHitValue < nearestHitValue) {
 				nearestHitValue = tempHitValue;
 				result.shape = shape;
-				result.point = new Vector(ray.origin).add(new Vector(ray.direction).mul(nearestHitValue));
 				result.tValue = nearestHitValue;
 			}
 		}
-		if (result.shape != null)
+		if (result.shape != null) {
+			result.point = new Vector(ray.getOrigin()).add(new Vector(ray.getDirection()).mul(result.tValue));
 			return result;
+		}
 		return null;
 	}
 

@@ -4,3 +4,6 @@
 /RayTracer$World.class
 /RayTracer$Tracer.class
 /RayTracer$Intersection.class
+/Ray.class
+/Intersection.class
+/World.class

@@ -1,6 +1,6 @@
 package geometry;
 
-import main.RayTracer.Ray;
+import main.Ray;
 import utility.Vector;
 
 public class Plane extends Shape {
@@ -16,6 +16,11 @@ public class Plane extends Shape {
 	// perpendicular to the normal.
 	private Vector normal;
 	private double offset;
+
+	public Plane(String[] params) {
+		this(new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]), Double.parseDouble(params[2])),
+				Double.parseDouble(params[3]), Integer.parseInt(params[4]));
+	}
 
 	public Plane(Vector normal, double offset, int materialIndex) {
 		super(materialIndex);
@@ -38,6 +43,6 @@ public class Plane extends Shape {
 
 	@Override
 	public Vector getNormalAt(Vector point) {
-		return this.normal.normalize();
+		return new Vector(this.normal).normalize();
 	}
 }

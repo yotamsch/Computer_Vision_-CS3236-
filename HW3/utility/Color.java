@@ -75,4 +75,8 @@ public class Color {
 					return true;
 		return false;
 	}
+	
+	public boolean isBlack() {
+		return this.equals(new Color(0,0,0));
+	}
 }

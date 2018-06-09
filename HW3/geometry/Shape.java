@@ -1,13 +1,13 @@
 package geometry;
 
-import main.RayTracer.Ray;
+import main.Ray;
 import utility.Vector;
 
 public abstract class Shape {
 	private int materialIndex;
 
 	public Shape(int materialIndex) {
-		this.materialIndex = materialIndex;
+		this.materialIndex = materialIndex - 1;
 	}
 
 	public int getMaterialIndex() {
@@ -45,9 +45,10 @@ public abstract class Shape {
 	 */
 	public Ray getReflectedRay(Vector rayDirection, Vector point) {
 		Vector N = this.getNormalAt(point);
-		Vector V = new Vector(rayDirection).normalize().mul(-1);
+		Vector V = new Vector(rayDirection);
 
-		return new Ray(new Vector(point), new Vector(N).mul(2 * Vector.dot(N, V)).sub(V));
+		return new Ray(new Vector(point).add(new Vector(V).mul(main.RayTracer.epsilon)),
+				new Vector(N).mul(-2 * Vector.dot(N, V)).add(V));
 	}
 
 	/**
@@ -70,6 +71,6 @@ public abstract class Shape {
 		Vector direction = new Vector(rayDirection).mul(transformFraction)
 				.add(new Vector(N).mul(transformFraction * c1 - c2));
 
-		return new Ray(new Vector(point), direction);
+		return new Ray(new Vector(point).add(direction.mul(main.RayTracer.epsilon)), direction.normalize());
 	}
 }

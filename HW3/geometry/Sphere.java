@@ -1,6 +1,6 @@
 package geometry;
 
-import main.RayTracer.Ray;
+import main.Ray;
 import utility.Vector;
 
 public class Sphere extends Shape {
@@ -10,6 +10,11 @@ public class Sphere extends Shape {
 	// (r - p) * (r - p) = R ^ 2
 	private Vector center;
 	private double radius;
+
+	public Sphere(String[] params) {
+		this(new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]), Double.parseDouble(params[2])),
+				Double.parseDouble(params[3]), Integer.parseInt(params[4]));
+	}
 
 	public Sphere(Vector center, double radius, int materialIndex) {
 		super(materialIndex);
