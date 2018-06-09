@@ -24,18 +24,27 @@ public class Camera {
 	}
 
 	public Vector getPosition() {
-		return this.position;
+		return position;
 	}
 
 	public Vector getUpDirection() {
 		return v;
 	}
+	
+	public Vector getRightDirection() {
+		return u;
+	}
+	
+	public Vector getTowardsDirection() {
+		return w;
+	}
 
 	public Ray getRayPerspective(double x_pos, double y_pos) {
-		Vector pixelLocation = new Vector(L).add(new Vector(u).mul(x_pos * screenWidth))
-				.add(new Vector(v).mul(y_pos * screenHeight));
+		Vector pixelLocation = new Vector(L)
+				.add(new Vector(u).mul(x_pos * screenWidth))
+				.sub(new Vector(v).mul(y_pos * screenHeight));
 		Vector rayDirection = new Vector(pixelLocation).sub(this.position);
-
+		
 		return new Ray(new Vector(position), rayDirection);
 	}
 
@@ -48,12 +57,13 @@ public class Camera {
 		// http://web.cse.ohio-state.edu/~shen.94/681/Site/Slides_files/basic_algo.pdf
 
 		// Calculate eye coordinate system
-		this.w = new Vector(this.position).sub(this.lookAt).normalize();
-		this.u = Vector.cross(w, this.up).normalize();
+		this.w = new Vector(this.lookAt).sub(this.position).normalize();
+		this.u = Vector.cross(this.up, w).normalize();
 		this.v = Vector.cross(w, u).normalize();
-		// Center of view-port
-		Vector C = new Vector(this.position).sub(new Vector(w).mul(screenDist));
-		// Bottom left corner
-		this.L = C.sub(new Vector(u).mul(this.screenWidth / 2)).sub(new Vector(v).mul(this.screenHeight / 2));
+		// Top left corner
+		this.L = new Vector(this.position)
+				.add(new Vector(w).mul(this.screenDist))
+				.sub(new Vector(u).mul(this.screenWidth / 2))
+				.add(new Vector(v).mul(this.screenHeight / 2));
 	}
 }

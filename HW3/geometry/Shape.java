@@ -47,7 +47,7 @@ public abstract class Shape {
 		Vector N = this.getNormalAt(point);
 		Vector V = new Vector(rayDirection);
 
-		return new Ray(new Vector(point).add(new Vector(V).mul(main.RayTracer.epsilon)),
+		return new Ray(new Vector(point),
 				new Vector(N).mul(-2 * Vector.dot(N, V)).add(V));
 	}
 
@@ -71,6 +71,6 @@ public abstract class Shape {
 		Vector direction = new Vector(rayDirection).mul(transformFraction)
 				.add(new Vector(N).mul(transformFraction * c1 - c2));
 
-		return new Ray(new Vector(point).add(direction.mul(main.RayTracer.epsilon)), direction.normalize());
+		return new Ray(new Vector(point), direction.normalize());
 	}
 }

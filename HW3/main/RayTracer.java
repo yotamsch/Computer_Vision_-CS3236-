@@ -7,13 +7,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 import javax.imageio.ImageIO;
-
-import com.sun.corba.se.pept.transport.OutboundConnectionCache;
 
 import geometry.Plane;
 import geometry.Shape;
@@ -22,7 +18,6 @@ import geometry.Triangle;
 import scene.Camera;
 import scene.Light;
 import scene.Material;
-import sun.util.calendar.BaseCalendar;
 import utility.Color;
 import utility.Vector;
 
@@ -32,7 +27,6 @@ import utility.Vector;
 public class RayTracer {
 	// Static parameters
 	public static final Random rand = new Random();
-	public static final boolean isPerspective = true;
 	public static final float epsilon = 1E-5F;
 
 	// Output image parameters
@@ -62,60 +56,50 @@ public class RayTracer {
 	 */
 	public static void main(String[] args) {
 
-		//String[] files = { "Test", "Test2", "Pool", "Triangle", "Transparency","Room1", "Room10", "Spheres", "Triangle2" };
-		String[] files = { "Test", "Test2", "Transparency"};
-		for (String file : files) {
-			try {
+		try {
 
-				RayTracer tracer = new RayTracer();
+			RayTracer tracer = new RayTracer();
 
-				// Default values:
-				tracer.imageWidth = 500;
-				tracer.imageHeight = 500;
+			// Default values:
+			tracer.imageWidth = 500;
+			tracer.imageHeight = 500;
 
-				if (args.length < 2)
-					throw new RayTracerException(
-							"Not enough arguments provided. Please specify an input scene file and an output image file for rendering.");
+			if (args.length < 2)
+				throw new RayTracerException(
+						"Not enough arguments provided. Please specify an input scene file and an output image file for rendering.");
 
-				String sceneFileName;
-				String outputFileName;
+			String sceneFileName;
+			String outputFileName;
 
-				if (files.length > 0) {
-					sceneFileName = file.concat(".txt");
-					outputFileName = file.concat(".png");
-				} else {
-					sceneFileName = args[0];
-					outputFileName = args[1];
+			sceneFileName = args[0];
+			outputFileName = args[1];
 
-					if (args.length > 3) {
-						tracer.imageWidth = Integer.parseInt(args[2]);
-						tracer.imageHeight = Integer.parseInt(args[3]);
-					}
-				}
-
-				// Parse scene file:
-				tracer.parseScene(sceneFileName);
-
-				// Render scene:
-				tracer.renderScene(outputFileName);
-
-			} catch (RayTracerException e) {
-				e.printStackTrace();
-				System.out.println(e.getMessage());
-			} catch (IOException e) {
-				e.printStackTrace();
-				System.out.println(e.getMessage());
-			} catch (Exception e) {
-				e.printStackTrace();
-				System.out.println(e.getMessage());
+			if (args.length > 3) {
+				tracer.imageWidth = Integer.parseInt(args[2]);
+				tracer.imageHeight = Integer.parseInt(args[3]);
 			}
+
+			// Parse scene file:
+			tracer.parseScene(sceneFileName);
+
+			// Render scene:
+			tracer.renderScene(outputFileName);
+
+		} catch (RayTracerException e) {
+			System.out.println(e.getMessage());
+		} catch (IOException e) {
+			System.out.println(e.getMessage());
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
 		}
 	}
 
 	/**
 	 * Parses the scene file and creates the scene.
+	 * 
+	 * @throws RayTracerException
 	 */
-	public void parseScene(String sceneFileName) throws IOException {
+	public void parseScene(String sceneFileName) throws IOException, RayTracerException {
 		FileReader fr = new FileReader(sceneFileName);
 
 		BufferedReader r = new BufferedReader(fr);
@@ -124,63 +108,80 @@ public class RayTracer {
 		this.scene = new World();
 		System.out.println("Started parsing scene file " + sceneFileName);
 
-		while ((line = r.readLine()) != null) {
-			line = line.trim();
-			++lineNum;
+		try {
+			while ((line = r.readLine()) != null) {
+				line = line.trim();
+				++lineNum;
 
-			if (line.isEmpty() || (line.charAt(0) == '#')) { // This line in the scene file is a comment
-				continue;
-			} else {
-				String code = line.substring(0, 3).toLowerCase();
-				// Split according to white space characters:
-				String[] params = line.substring(3).trim().toLowerCase().split("\\s+");
-
-				// TODO: should we verify that the input is correct?
-				if (code.equals("cam")) {
-					// Camera
-					this.scene.camera = new Camera(params);
-					this.scene.camera.setAspectRatio(this.imageHeight / this.imageWidth);
-					this.scene.camera.setupCamera();
-					System.out.println(String.format("Parsed camera parameters (line %d)", lineNum));
-				} else if (code.equals("set")) {
-					// Scene parameters
-					this.backgroundColor = new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]),
-							Float.parseFloat(params[2]));
-					this.shadowRaysNum = Integer.parseInt(params[3]);
-					this.recursionsMaxLevel = Integer.parseInt(params[4]);
-					this.superSamplingLevel = Integer.parseInt(params[5]);
-					System.out.println(String.format("Parsed general settings (line %d)", lineNum));
-				} else if (code.equals("mtl")) {
-					// Material
-					this.scene.materials.add(new Material(params));
-					System.out.println(String.format("Parsed material (line %d)", lineNum));
-				} else if (code.equals("sph")) {
-					// Sphere
-					this.scene.shapes.add(new Sphere(params));
-					System.out.println(String.format("Parsed sphere (line %d)", lineNum));
-				} else if (code.equals("pln")) {
-					// Plane
-					this.scene.shapes.add(new Plane(params));
-					System.out.println(String.format("Parsed plane (line %d)", lineNum));
-				} else if (code.equals("trg")) {
-					// Triangle
-					this.scene.shapes.add(new Triangle(params));
-					System.out.println(String.format("Parsed triangle (line %d)", lineNum));
-				} else if (code.equals("lgt")) {
-					// Light
-					this.scene.lights.add(new Light(params));
-					System.out.println(String.format("Parsed light (line %d)", lineNum));
+				if (line.isEmpty() || (line.charAt(0) == '#')) { // This line in the scene file is a comment
+					continue;
 				} else {
-					System.out.println(String.format("ERROR: Did not recognize object: %s (line %d)", code, lineNum));
+					String code = line.substring(0, 3).toLowerCase();
+					// Split according to white space characters:
+					String[] params = line.substring(3).trim().toLowerCase().split("\\s+");
+
+					if (code.equals("cam")) {
+						// Camera
+						this.scene.camera = new Camera(params);
+						this.scene.camera.setAspectRatio(this.imageHeight / this.imageWidth);
+						this.scene.camera.setupCamera();
+						System.out.println(String.format("Parsed camera parameters (line %d)", lineNum));
+					} else if (code.equals("set")) {
+						// Scene parameters
+						this.backgroundColor = new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]),
+								Float.parseFloat(params[2]));
+						this.shadowRaysNum = Integer.parseInt(params[3]);
+						this.recursionsMaxLevel = Integer.parseInt(params[4]);
+						this.superSamplingLevel = Integer.parseInt(params[5]);
+						System.out.println(String.format("Parsed general settings (line %d)", lineNum));
+					} else if (code.equals("mtl")) {
+						// Material
+						this.scene.materials.add(new Material(params));
+						System.out.println(String.format("Parsed material (line %d)", lineNum));
+					} else if (code.equals("sph")) {
+						// Sphere
+						this.scene.shapes.add(new Sphere(params));
+						System.out.println(String.format("Parsed sphere (line %d)", lineNum));
+					} else if (code.equals("pln")) {
+						// Plane
+						this.scene.shapes.add(new Plane(params));
+						System.out.println(String.format("Parsed plane (line %d)", lineNum));
+					} else if (code.equals("trg")) {
+						// Triangle
+						this.scene.shapes.add(new Triangle(params));
+						System.out.println(String.format("Parsed triangle (line %d)", lineNum));
+					} else if (code.equals("lgt")) {
+						// Light
+						this.scene.lights.add(new Light(params));
+						System.out.println(String.format("Parsed light (line %d)", lineNum));
+					} else {
+						System.out
+								.println(String.format("ERROR: Did not recognize object: %s (line %d)", code, lineNum));
+					}
 				}
+			}
+		} catch (ArrayIndexOutOfBoundsException e) {
+			throw new RayTracerException(String.format("Invalid format in line: %d.", lineNum));
+		} finally {
+			r.close();
+		}
+
+		if (this.scene.camera == null) {
+			throw new RayTracerException("Camera settings are missing.");
+		}
+		if (this.backgroundColor == null) {
+			throw new RayTracerException("General settings are missing.");
+		}
+		for (Shape s : this.scene.shapes) {
+			int mat = s.getMaterialIndex();
+			if (mat < 0 || mat >= this.scene.materials.size()) {
+				throw new RayTracerException(
+						String.format("Invalid material for %s.", s.getClass().getName().split("geometry.")[1]));
 			}
 		}
 
-		// TODO: check that everything is defined (camera, materials, etc...)
-
 		System.out.println("Finished parsing scene file " + sceneFileName);
 
-		r.close();
 	}
 
 	/**
@@ -195,6 +196,7 @@ public class RayTracer {
 		// Base looping over the pixels
 		System.out.print("Progress:\t|--------------------|\n");
 		System.out.print("\t\t ");
+
 		for (int y = 0; y < this.imageHeight; y++) {
 			for (int x = 0; x < this.imageWidth; x++) {
 				// Initialize to a black color
@@ -205,14 +207,14 @@ public class RayTracer {
 					for (int j = 0; j < this.superSamplingLevel; j++) {
 						Ray ray;
 						double trace_x, trace_y;
-						float randJitter;
+						float rand1, rand2;
 
 						// Adding random noise for anti-aliasing not including edges
-						randJitter = rand.nextFloat();
-						randJitter = randJitter == 1.0F || randJitter == 0.0F ? 0.5F : randJitter;
+						rand1 = rand.nextFloat();
+						rand2 = rand.nextFloat();
 
-						trace_x = (x + (j + randJitter) / this.superSamplingLevel) / this.imageWidth;
-						trace_y = (y + (i + randJitter) / this.superSamplingLevel) / this.imageHeight;
+						trace_x = (x + (j + rand1) / this.superSamplingLevel) / this.imageWidth;
+						trace_y = (y + (i + rand2) / this.superSamplingLevel) / this.imageHeight;
 						ray = this.scene.camera.getRayPerspective(trace_x, trace_y);
 
 						// add the color (average later)
@@ -331,17 +333,18 @@ public class RayTracer {
 				reflecColor.mul(mat.getReflection());
 			}
 
+			// get diffuse and specular
 			for (Light light : this.scene.lights) {
 				Color currColor = getBaseColor(light, ray, firstIntersected);
-				
+
 				// soft shadows
 				if (light.getShadowIntensity() != 0 && !currColor.isBlack()) {
 					float lightPass = getLightPassPrecent(firstIntersected, light);
 					currColor.mul(1 - light.getShadowIntensity() + light.getShadowIntensity() * lightPass);
 				}
-				
 				baseColor.add(currColor);
 			}
+			baseColor.clamp();
 
 			outColor.add(baseColor.mul(1 - mat.getTranparency()));
 			outColor.add(refracColor.mul(mat.getTranparency()));
@@ -398,27 +401,33 @@ public class RayTracer {
 		Vector N = new Vector(light.getPosition()).sub(firstIntersected.point);
 		Vector U = Vector.cross(N, up).normalize();
 		Vector V = Vector.cross(N, U).normalize();
-		
+
 		Vector lightPos = new Vector(light.getPosition());
-		lightPos.sub(new Vector(U).mul(light.getRadius() / 2));
-		lightPos.sub(new Vector(V).mul(light.getRadius() / 2));
+
+		// <print>
+		// System.out.println(up);
+		// System.out.println(N);
+		// System.out.println(U);
+		// System.out.println(V);
+		// System.out.println(lightPos);
 
 		double lightLevel = 0;
 
 		for (int i = 0; i < this.shadowRaysNum; i++) {
 			for (int j = 0; j < this.shadowRaysNum; j++) {
-				double randJitter = this.shadowRaysNum > 1 ? rand.nextDouble() : 0;
+				double rand1 = this.shadowRaysNum > 1 ? rand.nextDouble() : 0;
+				double rand2 = this.shadowRaysNum > 1 ? rand.nextDouble() : 0;
 
 				Vector lightPoint = new Vector(lightPos);
 				lightPoint.add(new Vector(V)
-						.mul((i + randJitter) * (light.getRadius() / this.shadowRaysNum)));
+						.mul((i + rand1 - (this.shadowRaysNum) / 2) * (light.getRadius() / this.shadowRaysNum)));
 				lightPoint.add(new Vector(U)
-						.mul((j + randJitter) * (light.getRadius() / this.shadowRaysNum)));
-				
+						.mul((j + rand2 - (this.shadowRaysNum) / 2) * (light.getRadius() / this.shadowRaysNum)));
+
 				Vector LightDir = new Vector(firstIntersected.point).sub(lightPoint);
 				double T = LightDir.norm();
 
-				Ray lightRay = new Ray(new Vector(lightPoint), new Vector(firstIntersected.point).sub(lightPoint));
+				Ray lightRay = new Ray(lightPoint, LightDir);
 				lightLevel += getLightLevel(lightRay, T);
 			}
 		}
