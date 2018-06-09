@@ -68,16 +68,6 @@ public class Vector {
 		double cross_z = v.x * u.y - v.y * u.x;
 		return new Vector(cross_x, cross_y, cross_z);
 	}
-
-	// TODO: not sure if needed
-	public static Vector projection(Vector v, Vector onTo) {
-		double scalar = Vector.dot(v, onTo) / Vector.dot(onTo, onTo);
-		return new Vector(onTo).mul(scalar);
-	}
-
-	public static double distance(Vector from, Vector to) {
-		return Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2) + Math.pow(to.z - from.z, 2));
-	}
 	
 	public static float cos(Vector v, Vector u) {
 		float res = (float)dot(v,u);
@@ -85,11 +75,6 @@ public class Vector {
 		return res;
 	}
 	
-	public static float sin(Vector v, Vector u) {
-		float cos = cos(v,u);
-		return (float)Math.sqrt(1 - Math.pow(cos, 2));
-	}
-
 	@Override
 	public String toString() {
 		return String.format("<Vector: [%.4f,%.4f,%.4f]>", x, y, z);
