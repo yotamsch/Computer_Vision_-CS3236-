@@ -20,7 +20,7 @@ public class Material {
 		this.phong = phong;
 		this.tranparency = transperacy;
 	}
-
+	
 	public Color getDiffuse() {
 		return new Color(this.diffuse);
 	}

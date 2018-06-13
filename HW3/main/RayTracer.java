@@ -39,6 +39,9 @@ public class RayTracer {
 	int shadowRaysNum;
 	int recursionsMaxLevel;
 	int superSamplingLevel;
+	double focalDist;
+	double apartureSize;
+	double focalRays;
 
 	/**
 	 * Custom exception for Ray Tracing errors.
@@ -133,6 +136,9 @@ public class RayTracer {
 						this.shadowRaysNum = Integer.parseInt(params[3]);
 						this.recursionsMaxLevel = Integer.parseInt(params[4]);
 						this.superSamplingLevel = Integer.parseInt(params[5]);
+						this.focalDist = Double.parseDouble(params[6]);
+						this.apartureSize = Double.parseDouble(params[7]);
+						this.focalRays = Double.parseDouble(params[8]);
 						System.out.println(String.format("Parsed general settings (line %d)", lineNum));
 					} else if (code.equals("mtl")) {
 						// Material
@@ -202,27 +208,41 @@ public class RayTracer {
 				// Initialize to a black color
 				Color clr = new Color(0.0F, 0.0F, 0.0F);
 
-				// Support for anti-aliasing
 				for (int i = 0; i < this.superSamplingLevel; i++) {
 					for (int j = 0; j < this.superSamplingLevel; j++) {
+						// Support for anti-aliasing
 						Ray ray;
+						Vector focalPoint;
 						double trace_x, trace_y;
 						float rand1, rand2;
-
+						
 						// Adding random noise for anti-aliasing not including edges
 						rand1 = rand.nextFloat();
 						rand2 = rand.nextFloat();
 
+						// get main ray for focal point calculation
 						trace_x = (x + (j + rand1) / this.superSamplingLevel) / this.imageWidth;
 						trace_y = (y + (i + rand2) / this.superSamplingLevel) / this.imageHeight;
 						ray = this.scene.camera.getRayPerspective(trace_x, trace_y);
 
-						// add the color (average later)
-						clr.add(this.traceColor(ray, 0));
+						// calculate the focal point
+						focalPoint = new Vector(ray.getOrigin()).add(new Vector(ray.getDirection()).mul(focalDist));
+
+						for (int k = 0; k < this.focalRays; k++) {
+							for (int l = 0; l < this.focalRays; l++) {
+								// calculate the focal pixel position
+								trace_x = (x + (j + rand1) / this.superSamplingLevel - this.apartureSize / 2 + this.apartureSize * (l / this.focalRays)) / this.imageWidth;
+								trace_y = (y + (i + rand2) / this.superSamplingLevel - this.apartureSize / 2 + this.apartureSize * (k / this.focalRays)) / this.imageHeight;
+								ray = this.scene.camera.getRayFocal(trace_x, trace_y, focalPoint);
+
+								// add the color (average later)
+								clr.add(this.traceColor(ray, 0));
+							}
+						}
 					}
 				}
 
-				clr.div((float) Math.pow(this.superSamplingLevel, 2));
+				clr.div((float) Math.pow(this.focalRays * this.superSamplingLevel, 2));
 
 				// Set the color of the output image
 				byte[] bClr = clr.getRGB();
@@ -360,7 +380,8 @@ public class RayTracer {
 
 	private Color getBaseColor(Light light, Ray ray, Intersection firstIntersected) {
 		Material mat = this.scene.materials.get(firstIntersected.shape.getMaterialIndex());
-		Color baseColor = mat.getDiffuse();
+		
+		Color baseColor = mat.getDiffuse().mul(firstIntersected.shape.getTextureAt(firstIntersected.point));
 		Color specularColor = mat.getSpecular();
 
 		Vector lightDir = new Vector(light.getPosition()).sub(firstIntersected.point).normalize();

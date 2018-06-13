@@ -1,6 +1,7 @@
 package geometry;
 
 import main.Ray;
+import utility.Color;
 import utility.Vector;
 
 public class Triangle extends Shape {
@@ -63,5 +64,13 @@ public class Triangle extends Shape {
 	@Override
 	public Vector getNormalAt(Vector point) {
 		return Vector.cross(new Vector(v2).sub(v1), new Vector(v3).sub(v1)).normalize();
+	}
+
+	@Override
+	public Color getTextureAt(Vector point) {
+		// calc u,v positions
+		int u = 0, v = 0;
+
+		return this.getRGBAt(u, v, 0);
 	}
 }

@@ -1,10 +1,18 @@
 package geometry;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+
+import javax.imageio.ImageIO;
+
 import main.Ray;
+import utility.Color;
 import utility.Vector;
 
 public abstract class Shape {
 	private int materialIndex;
+	private BufferedImage img = null;
 
 	public Shape(int materialIndex) {
 		this.materialIndex = materialIndex - 1;
@@ -12,6 +20,10 @@ public abstract class Shape {
 
 	public int getMaterialIndex() {
 		return materialIndex;
+	}
+
+	public void initializeTexture(String path) throws IOException {
+		img = ImageIO.read(new File(path));
 	}
 
 	/**
@@ -47,8 +59,7 @@ public abstract class Shape {
 		Vector N = this.getNormalAt(point);
 		Vector V = new Vector(rayDirection);
 
-		return new Ray(new Vector(point),
-				new Vector(N).mul(-2 * Vector.dot(N, V)).add(V));
+		return new Ray(new Vector(point), new Vector(N).mul(-2 * Vector.dot(N, V)).add(V));
 	}
 
 	/**
@@ -72,5 +83,27 @@ public abstract class Shape {
 				.add(new Vector(N).mul(transformFraction * c1 - c2));
 
 		return new Ray(new Vector(point), direction.normalize());
+	}
+
+	public abstract Color getTextureAt(Vector point);
+
+	protected Color getRGBAt(double u, double v, double rotateY) {
+		if (this.img == null) {
+			return new Color(1, 1, 1);
+		}
+
+		int x = (int) (u * this.img.getWidth());
+		x = (x + (int) (rotateY * this.img.getWidth())) % (this.img.getWidth());
+		int y = (int) (v * this.img.getHeight());
+		int pixel = this.img.getRGB(x, y);
+
+		int alpha = (pixel >> 24) & 0xff;
+
+		int red = (pixel >> 16) & 0xff;
+		int green = (pixel >> 8) & 0xff;
+		int blue = (pixel) & 0xff;
+
+		Color res = new Color((float) red / 255F, (float) green / 255F, (float) blue / 255F);
+		return res;
 	}
 }

@@ -1,6 +1,9 @@
 package geometry;
 
+import java.io.IOException;
+
 import main.Ray;
+import utility.Color;
 import utility.Vector;
 
 public class Sphere extends Shape {
@@ -10,10 +13,17 @@ public class Sphere extends Shape {
 	// (r - p) * (r - p) = R ^ 2
 	private Vector center;
 	private double radius;
+	private double rotateY = 0;
 
-	public Sphere(String[] params) {
+	public Sphere(String[] params) throws IOException {
 		this(new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]), Double.parseDouble(params[2])),
 				Double.parseDouble(params[3]), Integer.parseInt(params[4]));
+		if (params.length > 5) {
+			this.initializeTexture(params[5]);
+		}
+		if (params.length > 6) {
+			this.rotateY = Double.parseDouble(params[6]);
+		}
 	}
 
 	public Sphere(Vector center, double radius, int materialIndex) {
@@ -40,5 +50,25 @@ public class Sphere extends Shape {
 	@Override
 	public Vector getNormalAt(Vector point) {
 		return new Vector(point).sub(this.center).normalize();
+	}
+
+	@Override
+	public Color getTextureAt(Vector point) {
+		// calc u,v positions
+		Vector vN = new Vector(0,-1,0);
+		Vector vE = new Vector(1,0,0);
+		double u = 0, v = 0;
+		Vector vP = new Vector(point).sub(this.center).normalize();
+		double phi = Math.acos(-1 * (Vector.dot(vN, vP)));
+		v = phi / Math.PI;
+		double xi = (Vector.dot(vP,vE)) / Math.sin(phi);
+		double t = Math.acos(xi) / (2 * Math.PI); 
+		if (Vector.dot(Vector.cross(vN, vE), vP) > 0) {
+			u = t;
+		} else {
+			u = 1-t;
+		}
+
+		return this.getRGBAt(u, v, this.rotateY);
 	}
 }

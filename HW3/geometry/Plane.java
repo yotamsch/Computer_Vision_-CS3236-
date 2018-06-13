@@ -1,6 +1,7 @@
 package geometry;
 
 import main.Ray;
+import utility.Color;
 import utility.Vector;
 
 public class Plane extends Shape {
@@ -44,5 +45,13 @@ public class Plane extends Shape {
 	@Override
 	public Vector getNormalAt(Vector point) {
 		return new Vector(this.normal).normalize();
+	}
+
+	@Override
+	public Color getTextureAt(Vector point) {
+		// calc u,v positions
+		int u = 0, v = 0;
+
+		return this.getRGBAt(u, v, 0);
 	}
 }

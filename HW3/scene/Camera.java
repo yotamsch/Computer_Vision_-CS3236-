@@ -30,21 +30,20 @@ public class Camera {
 	public Vector getUpDirection() {
 		return v;
 	}
-	
+
 	public Vector getRightDirection() {
 		return u;
 	}
-	
+
 	public Vector getTowardsDirection() {
 		return w;
 	}
 
 	public Ray getRayPerspective(double x_pos, double y_pos) {
-		Vector pixelLocation = new Vector(L)
-				.add(new Vector(u).mul(x_pos * screenWidth))
+		Vector pixelLocation = new Vector(L).add(new Vector(u).mul(x_pos * screenWidth))
 				.sub(new Vector(v).mul(y_pos * screenHeight));
 		Vector rayDirection = new Vector(pixelLocation).sub(this.position);
-		
+
 		return new Ray(new Vector(position), rayDirection);
 	}
 
@@ -61,9 +60,17 @@ public class Camera {
 		this.u = Vector.cross(this.up, w).normalize();
 		this.v = Vector.cross(w, u).normalize();
 		// Top left corner
-		this.L = new Vector(this.position)
-				.add(new Vector(w).mul(this.screenDist))
-				.sub(new Vector(u).mul(this.screenWidth / 2))
-				.add(new Vector(v).mul(this.screenHeight / 2));
+		this.L = new Vector(this.position).add(new Vector(w).mul(this.screenDist))
+				.sub(new Vector(u).mul(this.screenWidth / 2)).add(new Vector(v).mul(this.screenHeight / 2));
+	}
+
+	public Ray getRayFocal(double x_pos, double y_pos, Vector focalPoint) {
+		Vector fPoint = new Vector(focalPoint);
+
+		Vector pixelLocation = new Vector(L).add(new Vector(u).mul(x_pos * screenWidth))
+				.sub(new Vector(v).mul(y_pos * screenHeight));
+		Vector rayDirection = new Vector(fPoint).sub(pixelLocation);
+
+		return new Ray(pixelLocation, rayDirection);
 	}
 }
