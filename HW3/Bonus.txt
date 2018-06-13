@@ -1,9 +1,33 @@
 # Camera		px  	 	py   		pz 		lx  		ly  		lz 		ux  		uy 	 	uz 		sc_dist		sc_width
-cam				0		-0.5		10		0		0		1		0		1		0		1			1
+cam				0		0.5		10		0		0		-4		0		1		0		1			1
 
 # Settings		bgr		bgg		bgb		sh_ray		rec_mac	SS		focal_d		apt_size		focal_r
 set				0		0		0		2			5			5		3			10				3
 
 # Materials		dr   		dg		db		sr		sg		sb		rr		rg		rb		phong		trans
+# earth: 1
+mtl				1    1   1   0.5   0.5   0.5   0   0   0   10    0
+# moon: 2
+mtl       1   1   1   0.2   0.2   0.2   0   0   0   5   0
+# floor: 3
+mtl       0.1   0.1   0.44    0.8   0.8   0.8   0.5   0.5   0.5   4   0
+
+# Sphere
 # earth
-mat				
+sph       2   1.5   6   1.5   1   ./earth.jpg   0.9
+# moon
+sph       0.2   3.5   6   0.6   2   ./moon2.jpg    0.1
+
+# Plane   nx	ny	nz	offset	mat_idx
+# floor
+pln       0 1  0   0   0.1   0
+
+# Lights      px	py	pz	r	g	b	spec	shadow	width
+# Main Light:
+lgt		1	7	-2	1	1	1	1	0.85	1
+
+# Rim Light:
+lgt		-4	-1	-0.5	0.6	0.7	0.8	0.1	0.9	4
+
+# Fill Light:
+lgt		0.1	-0.4	-1	0.3	0.3	0.35	0.1	0.8	4
