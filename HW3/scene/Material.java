@@ -6,6 +6,7 @@ public class Material {
 	private Color diffuse, specular, reflection;
 	private float phong, tranparency;
 	private float refractionRatio = 1;
+	private float specularNoise = 0;
 
 	public Material(String[] params) {
 		this(new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]), Float.parseFloat(params[2])),
@@ -14,6 +15,9 @@ public class Material {
 				Float.parseFloat(params[9]), Float.parseFloat(params[10]));
 		if (params.length > 11) {
 			this.refractionRatio = Float.parseFloat(params[11]);
+		}
+		if (params.length > 12) {
+			this.specularNoise = Float.parseFloat(params[12]);
 		}
 	}
 
@@ -30,7 +34,8 @@ public class Material {
 	}
 
 	public Color getSpecular() {
-		return new Color(this.specular);
+		float noise = this.specularNoise == 0 ? 0F : (float)main.RayTracer.rand.nextFloat() * this.specularNoise;
+		return new Color(this.specular).add(new Color(noise,noise,noise));
 	}
 
 	public Color getReflection() {
