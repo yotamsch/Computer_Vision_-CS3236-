@@ -404,13 +404,6 @@ public class RayTracer {
 
 		Vector lightPos = new Vector(light.getPosition());
 
-		// <print>
-		// System.out.println(up);
-		// System.out.println(N);
-		// System.out.println(U);
-		// System.out.println(V);
-		// System.out.println(lightPos);
-
 		double lightLevel = 0;
 
 		for (int i = 0; i < this.shadowRaysNum; i++) {
