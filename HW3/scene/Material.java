@@ -5,12 +5,16 @@ import utility.Color;
 public class Material {
 	private Color diffuse, specular, reflection;
 	private float phong, tranparency;
+	private float refractionRatio = 1;
 
 	public Material(String[] params) {
 		this(new Color(Float.parseFloat(params[0]), Float.parseFloat(params[1]), Float.parseFloat(params[2])),
 				new Color(Float.parseFloat(params[3]), Float.parseFloat(params[4]), Float.parseFloat(params[5])),
 				new Color(Float.parseFloat(params[6]), Float.parseFloat(params[7]), Float.parseFloat(params[8])),
 				Float.parseFloat(params[9]), Float.parseFloat(params[10]));
+		if (params.length > 11) {
+			this.refractionRatio = Float.parseFloat(params[11]);
+		}
 	}
 
 	public Material(Color diffuse, Color specular, Color reflection, float phong, float transperacy) {
@@ -40,6 +44,8 @@ public class Material {
 	public float getTranparency() {
 		return tranparency;
 	}
+
+	public float getRefractionRatio() { return refractionRatio; }
 	
 	public boolean isRefractive() {
 		return this.tranparency > 0;

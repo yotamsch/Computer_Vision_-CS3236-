@@ -1,40 +1,46 @@
 # Camera		px  	 	py   		pz 		lx  		ly  		lz 		ux  		uy 	 	uz 		sc_dist		sc_width
-cam				0.3		1.7		8.7		1.8		0.8		-1		0		1		0		1			1
+cam				0.3		1.7		8.7		1.8		0.8		-1		0		1		0		0.8			1
 
-# Settings		bgr		bgg		bgb		sh_ray		rec_mac	SS		focal_d		apt_size		focal_r
-set				0		0		0		2			5			3		4.1			0.1				5
+# Settings		bgr		bgg		bgb		sh_ray		rec_mac	SS		focal_d		apt_size		focal_r_dense
+set				0		0		0		2			3			3		3.8			0.05				0.4
 
-# Materials		dr   		dg		db		sr		sg		sb		rr		rg		rb		phong		trans
+# Materials		dr   		dg		db		sr		sg		sb		rr		rg		rb		phong		trans    refract_value
 # earth: 1
-mtl				1		1		1		0.25	0.25	0.25	0		0		0		1			0
+mtl				1		1		1		0.25	0.25	0.25	0		0		0		1			0   1
 # moon: 2
-mtl				1		1		1		0.3		0.3		0.3		0		0		0		2			0
+mtl				1		1		1		0.3		0.3		0.3		0		0		0		2			0   1
 # bg plane: 3
-mtl				1		1		1		0		0		0		0.1		0.1		0.1		1			0
+mtl				0.4		0.4		0.4		0		0		0		0		0		0		1			0   1
 # sun: 4
-mtl				1		1		1		0.55	0.55	0.55	0		0		0		2			0
+mtl				1		1		1		0.55	0.55	0.55	0		0		0		2			0   1
 # mars: 5
-mtl				0.7		0.7		0.7		0.25	0.25	0.25	0		0		0		1			0
+mtl				0.7		0.7		0.7		0.25	0.25	0.25	0		0		0		1			0   1
 
 # Sphere		cx		cy		cz		radius		mat_ix		texture			y_rot
 # earth
-sph				2		0.5		5		0.5			1			./earth1.jpg		0.3
+sph				2		0.5		5		0.5			1			./earth2.jpg		0.3
 # moon
-sph				1.5		1.1		5		0.2			2			./moon1.jpg		0.1
+sph				1.6		1.15		5		0.15			2			./moon1.jpg		0.1
 # sun
 sph				0.5		1.7		0		1.5			4			./sun1.jpg		0.5
 # mars
 sph				0		1.4		3		0.7			5			./mars1.jpg		0.1
 
-# Plane   		nx		ny		nz		offset		mat_idx		texture
+# Plane   		nx		ny		nz		offset		mat_idx		texture    scale
 # bg plane
-pln				0		0		1		-1			3			./stars2.jpg
+pln				-0.15		0		1		-1			3			./stars2.jpg   1
 
 # Lights      		px		py		pz		r		g		b		spec	shadow		width
-# Fill Light:
-lgt				0		3		4		1		1		1		0.8		0			1
-# Shadow Light:
+# Fill lights:
+lgt				0		3		4		0.8		0.8		0.8		0.8		0			1
+# Shadow lights:
 lgt				1		5		3		0.4		0.4		0.4		0.1		0			4
+# Earth lights:
+lgt				1.7		-0.4		5.6		0.2		0.2		0.2		0.8		0.8			1
 # Sun lights:
-lgt				2.5		0.1		1.8		0.8		0.6		0.3		0.3		0			1
-lgt				2.8		2.2		-1.8		0.8		0.6		0.3		0.3		0			1
+lgt				2.5		0.1		1.2		0.8		0.4		0.2		0.2		0.1			1
+lgt				2.8		3.6		-1.2		0.8		0.6		0.3		0.3		0			1
+lgt				4.1		1.6		-1.2		0.8		0.4		0.2		0.2		0.1			1
+lgt				-1.6		-0.6		1.2		0.8		0.6		0.3		0.3		0			1
+lgt				-2		3.4		3.1		0.8		0.6		0.6		0.6		0.1			1
+lgt				1.3		2.4		3.1		0.8		0.3		0.3		0.3		0			1
