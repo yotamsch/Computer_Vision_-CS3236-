@@ -123,7 +123,7 @@ public class RayTracer {
 					if (code.equals("cam")) {
 						// Camera
 						this.scene.camera = new Camera(params);
-						this.scene.camera.setAspectRatio(this.imageHeight / this.imageWidth);
+						this.scene.camera.setAspectRatio((double)this.imageHeight / this.imageWidth);
 						this.scene.camera.setupCamera();
 						System.out.println(String.format("Parsed camera parameters (line %d)", lineNum));
 					} else if (code.equals("set")) {
@@ -384,7 +384,7 @@ public class RayTracer {
 			// add specular color
 			cosAngle = Vector.cos(ray.getDirection(), lightReflect);
 			if (cosAngle < 0) {
-				cosAngle = (float) Math.pow(cosAngle, mat.getPhong());
+				cosAngle = (float) Math.pow(Math.abs(cosAngle), mat.getPhong());
 				specularColor.mul(cosAngle * light.getSpecularIntensity());
 				baseColor.add(specularColor);
 			}
