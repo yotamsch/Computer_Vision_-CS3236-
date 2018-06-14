@@ -87,17 +87,16 @@ public abstract class Shape {
 
 	public abstract Color getTextureAt(Vector point);
 
-	protected Color getRGBAt(double u, double v, double rotateY) {
+	protected Color getRGBAt(double u, double v) {
 		if (this.img == null) {
 			return new Color(1, 1, 1);
 		}
 
-		int x = (int) (u * this.img.getWidth());
-		x = (x + (int) (rotateY * this.img.getWidth())) % (this.img.getWidth());
-		int y = (int) (v * this.img.getHeight());
+		int x = (int) (u * this.img.getWidth()) % this.img.getWidth();
+		int y = (int) (v * this.img.getHeight()) % this.img.getHeight();
 		int pixel = this.img.getRGB(x, y);
 
-		int alpha = (pixel >> 24) & 0xff;
+		// int alpha = (pixel >> 24) & 0xff;
 
 		int red = (pixel >> 16) & 0xff;
 		int green = (pixel >> 8) & 0xff;

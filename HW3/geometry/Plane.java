@@ -1,5 +1,7 @@
 package geometry;
 
+import java.io.IOException;
+
 import main.Ray;
 import utility.Color;
 import utility.Vector;
@@ -18,9 +20,12 @@ public class Plane extends Shape {
 	private Vector normal;
 	private double offset;
 
-	public Plane(String[] params) {
+	public Plane(String[] params) throws IOException {
 		this(new Vector(Double.parseDouble(params[0]), Double.parseDouble(params[1]), Double.parseDouble(params[2])),
 				Double.parseDouble(params[3]), Integer.parseInt(params[4]));
+		if (params.length > 5) {
+			this.initializeTexture(params[5]);
+		}
 	}
 
 	public Plane(Vector normal, double offset, int materialIndex) {
@@ -50,8 +55,18 @@ public class Plane extends Shape {
 	@Override
 	public Color getTextureAt(Vector point) {
 		// calc u,v positions
-		int u = 0, v = 0;
+		Vector vP = new Vector(point.getX(), point.getY(), point.getZ() - (this.normal.getZ() != 0 ? this.offset / this.normal.getZ() : 0));
+		Vector vK = new Vector(0,0,1);
+		double cosT = Vector.cos(vK, this.normal);
+		double sinT = Vector.sin(vK, this.normal);
+		Vector vU = Vector.cross(this.normal, vK).div(this.normal.norm());
+		double u1 = vU.getX();
+		double u2 = vU.getY();
+		
+		double u = vP.getX() * (cosT + u1*u1 * (1 - cosT)) + vP.getY() * (u1*u2*(1-cosT)) + vP.getZ() * (u2*sinT);
+		double v = vP.getX() * (u1*u2*(1-cosT)) + vP.getY() * (cosT + u1*u1 * (1 - cosT)) + vP.getZ() * (-u1*sinT);
+		// double w = vP.getX() * (-u2*sinT) + vP.getY() * (u1*sinT) + vP.getZ() * (cosT);
 
-		return this.getRGBAt(u, v, 0);
+		return this.getRGBAt(Math.abs(u), Math.abs(v));
 	}
 }

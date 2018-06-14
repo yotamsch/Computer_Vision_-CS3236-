@@ -71,6 +71,6 @@ public class Triangle extends Shape {
 		// calc u,v positions
 		int u = 0, v = 0;
 
-		return this.getRGBAt(u, v, 0);
+		return this.getRGBAt(u, v);
 	}
 }

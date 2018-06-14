@@ -69,6 +69,6 @@ public class Sphere extends Shape {
 			u = 1-t;
 		}
 
-		return this.getRGBAt(u, v, this.rotateY);
+		return this.getRGBAt(u + this.rotateY, v);
 	}
 }
